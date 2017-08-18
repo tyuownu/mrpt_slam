@@ -506,6 +506,7 @@ bool ICPslamLiveWrapper::run() {
 			if (win3D_ && !win3D_->isOpen()) break;
 
 			//CObservation2DRangeScanPtr temp;
+			bool update = false;
 			{
 				mrpt::hwdrivers::CGenericSensor::TListObservations obs_copy;
 				{
@@ -518,6 +519,7 @@ bool ICPslamLiveWrapper::run() {
 					{
 						ROS_INFO("observation update");
 						observation = CObservation2DRangeScanPtr(it->second);
+						update = true;
 					}
 
 				if (out_rawlog.fileOpenCorrectly()) {
@@ -526,7 +528,7 @@ bool ICPslamLiveWrapper::run() {
 							out_rawlog << *it->second;
 				}
 			}
-			if (!observation) {
+			if (!update) {
 				if (timeout_read_scans.Tac() > 1.0) {
 					timeout_read_scans.Tic();
 					ROS_INFO("Waiting for laser scans");
@@ -537,6 +539,18 @@ bool ICPslamLiveWrapper::run() {
 
 			mapBuilder.processObservation(observation);
 			ROS_INFO("Map building executed");
+			/*
+			 *mrpt::system::TTimeParts parts;
+			 *mrpt::system::timestampToParts(observation->timestamp, parts, true);
+			 *ROS_INFO("observation timestamp: %ld --> %04u-%02u-%02u:%02uh%02um%02fs",
+			 *         observation->timestamp,
+			 *         (unsigned int)parts.year,
+			 *         (unsigned int)parts.month,
+			 *         (unsigned int)parts.day,
+			 *         (unsigned int)parts.hour,
+			 *         (unsigned int)parts.minute,
+			 *         parts.second);
+			 */
 			metric_map_ = mapBuilder.getCurrentlyBuiltMetricMap();
 
 			CPose3D robotPose;
