@@ -580,13 +580,14 @@ bool ICPslamLiveWrapper::run() {
 			pose.pose.orientation = tf::createQuaternionMsgFromYaw(robotPose.yaw());
 			pub_pose_.publish(pose);
 
+			f_estimated.printf("%f %f %f\n",
+					mapBuilder.getCurrentPoseEstimation()->getMeanVal().x(),
+					mapBuilder.getCurrentPoseEstimation()->getMeanVal().y(),
+					mapBuilder.getCurrentPoseEstimation()->getMeanVal().yaw());
+
 		}
 		run3Dwindow();
 
-		f_estimated.printf("%f %f %f\n",
-				mapBuilder.getCurrentPoseEstimation()->getMeanVal().x(),
-				mapBuilder.getCurrentPoseEstimation()->getMeanVal().y(),
-				mapBuilder.getCurrentPoseEstimation()->getMeanVal().yaw());
 	}
 	return true;
 }
