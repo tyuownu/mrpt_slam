@@ -180,6 +180,12 @@ void ICPslamLiveWrapper::get_param() {
 	n_.param<std::string>("sensor_source", sensor_source, "scan");
 	ROS_INFO("sensor_source: %s", sensor_source.c_str());
 
+	n_.param("trajectory_update_rate", trajectory_update_rate, 10.0);
+	ROS_INFO("trajectory_update_rate: %f", trajectory_update_rate);
+
+	n_.param("trajectory_publish_rate", trajectory_publish_rate, 5.0);
+	ROS_INFO("trajectory_publish_rate: %f", trajectory_publish_rate);
+
 	//mrpt::utils::CConfigFile iniFile(ini_filename);
 	params.cfgFile = &iniFile;
 	params.section_name = "LIDAR_SENSOR";
@@ -347,8 +353,17 @@ void ICPslamLiveWrapper::init() {
 	// publish point map
 	pub_point_cloud_ = n_.advertise<sensor_msgs::PointCloud>("PointCloudMap", 1, true);
 
+
 	// robot pose
 	pub_pose_ = n_.advertise<geometry_msgs::PoseStamped>("robot_pose", 1);
+	// publish robot trajectory
+	trajectory_pub_ = n_.advertise<nav_msgs::Path>("trajectory", 1, true);
+
+	update_trajector_timer = n_.createTimer(ros::Duration(1.0 / trajectory_update_rate),
+			&ICPslamLiveWrapper::updateTrajectoryTimerCallback, this ,false);
+
+	publish_trajectory_timer = n_.createTimer(ros::Duration(1.0 / trajectory_publish_rate),
+			&ICPslamLiveWrapper::publishTrajectoryTimerCallback, this, false);
 
 	// read sensor topics
 	/*
@@ -572,7 +587,7 @@ bool ICPslamLiveWrapper::run() {
 				pub_point_cloud_.publish(_msg);
 			}
 
-			geometry_msgs::PoseStamped pose;
+			// geometry_msgs::PoseStamped pose;
 			pose.header.frame_id = global_frame_id;
 			pose.pose.position.x = robotPose.x();
 			pose.pose.position.y = robotPose.y();
@@ -587,7 +602,22 @@ bool ICPslamLiveWrapper::run() {
 
 		}
 		run3Dwindow();
+		ros::spinOnce();
 
 	}
 	return true;
+}
+
+void ICPslamLiveWrapper::updateTrajectoryTimerCallback(const ros::TimerEvent& event)
+{
+	ROS_DEBUG("update trajectory");
+	path.header.frame_id = global_frame_id;
+	path.header.stamp = ros::Time(0);
+	path.poses.push_back(pose);
+}
+
+void ICPslamLiveWrapper::publishTrajectoryTimerCallback(const ros::TimerEvent& event)
+{
+	ROS_DEBUG("publish trajectory");
+	trajectory_pub_.publish(path);
 }
