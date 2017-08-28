@@ -40,6 +40,7 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include "nav_msgs/MapMetaData.h"
 #include <nav_msgs/Path.h>
+#include <nav_msgs/Odometry.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Header.h>
 #include <std_msgs/Int32.h>
@@ -189,6 +190,11 @@ public:
 
 	void publishTrajectoryTimerCallback(const ros::TimerEvent& event);
 
+	void convertNeoToCObservation(const sensor_msgs::LaserScan &scan, CObservation2DRangeScan& obj);
+
+	void odometryCallback(const nav_msgs::Odometry& odom);
+
+	void convertOdometry(CActionCollectionPtr) const;
 
 
 protected:
@@ -261,6 +267,12 @@ protected:
 	CFileOutputStream f_estimated;
 
 	COpenGLScenePtr scene;
+
+	nav_msgs::Odometry  cur_odom_, last_odom_;
+	bool b_first_odom;
+	ros::Subscriber odom_sub_;
+
+	CRawlog *pRawLogASF;
 
 };
 

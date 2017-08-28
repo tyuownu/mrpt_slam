@@ -73,6 +73,8 @@ ICPslamLiveWrapper::ICPslamLiveWrapper() {
 	CAMERA_3DSCENE_FOLLOWS_ROBOT = true;
 
 	SAVE_RAWLOG = true;
+	b_first_odom = true;
+	pRawLogASF = new CRawlog;
 
 }
 
@@ -107,6 +109,12 @@ ICPslamLiveWrapper::~ICPslamLiveWrapper() {
 		allThreadsMustExit = true;
 		mrpt::system::joinThread(hSensorThread);
 		ROS_INFO("Sensor thread is closed. Bye-bye!");
+
+		if (pRawLogASF->size() > 0) {
+			std::string filename = "pRawlogasoAf";
+			pRawLogASF->saveToRawLogFile(filename);
+		}
+		delete pRawLogASF;
 	}
 	catch (std::exception &e) {
 		ROS_ERROR("Exception: %s",e.what());
@@ -383,8 +391,18 @@ void ICPslamLiveWrapper::init() {
 	 *    }
 	 *}
 	 */
+	odom_sub_ = n_.subscribe("/odom", 1, &ICPslamLiveWrapper::odometryCallback, this);
 
 	init3Dwindow();
+}
+
+void ICPslamLiveWrapper::odometryCallback(const nav_msgs::Odometry& odom) {
+	if (b_first_odom) {
+		cur_odom_ = odom;
+		last_odom_ = odom;
+		b_first_odom = false;
+	} else
+		cur_odom_ = odom;
 }
 
 #if 0
@@ -511,6 +529,7 @@ void ICPslamLiveWrapper::publishTF() {
 
 bool ICPslamLiveWrapper::run() {
 	CTicTac timeout_read_scans;
+	bool first_time_process = true;
 	while (!allThreadsMustExit) {
 		if (ros::ok()) {
 			if (mrpt::system::os::kbhit()) {
@@ -551,8 +570,16 @@ bool ICPslamLiveWrapper::run() {
 				mrpt::system::sleep(1);
 				continue;
 			} else { timeout_read_scans.Tic(); }
+			//last_odom_ = cur_odom_;
+			CActionCollectionPtr action = CActionCollection::Create();
+			convertOdometry(action);
+			last_odom_ = cur_odom_;
+			CSensoryFramePtr SF = CSensoryFrame::Create();
+			SF->insert(observation);
+			pRawLogASF->addActionsMemoryReference(action);
+			pRawLogASF->addObservationsMemoryReference(SF);
 
-			mapBuilder.processObservation(observation);
+			mapBuilder.processActionObservation(*action, *SF);
 			ROS_INFO("Map building executed");
 			/*
 			 *mrpt::system::TTimeParts parts;
@@ -620,4 +647,36 @@ void ICPslamLiveWrapper::publishTrajectoryTimerCallback(const ros::TimerEvent& e
 {
 	ROS_DEBUG("publish trajectory");
 	trajectory_pub_.publish(path);
+}
+
+void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
+	CActionRobotMovement2D temp_action;
+	double x = cur_odom_.pose.pose.position.x - last_odom_.pose.pose.position.x;
+	double y = cur_odom_.pose.pose.position.y - last_odom_.pose.pose.position.y;
+	tf::Quaternion cur_quat, last_quat;
+	tf::quaternionMsgToTF(cur_odom_.pose.pose.orientation, cur_quat);
+	tf::quaternionMsgToTF(last_odom_.pose.pose.orientation, last_quat);
+
+	double cur_roll, cur_pitch, cur_yaw;
+	double last_roll, last_pitch, last_yaw;
+	ROS_INFO("quaternion: x = %f, y = %f, z = %f, w = %f",
+			cur_odom_.pose.pose.orientation.x,
+			cur_odom_.pose.pose.orientation.y,
+			cur_odom_.pose.pose.orientation.z,
+			cur_odom_.pose.pose.orientation.w
+			);
+
+	tf::Matrix3x3(cur_quat).getRPY(cur_roll, cur_pitch, cur_yaw);
+	tf::Matrix3x3(last_quat).getRPY(last_roll, last_pitch, last_yaw);
+	ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f", x, y, cur_roll, cur_pitch, cur_yaw);
+	ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f", x, y, last_roll, last_pitch, last_yaw);
+
+	CActionRobotMovement2D::TMotionModelOptions options;
+	temp_action.computeFromOdometry(CPose2D(x, y, cur_yaw - last_yaw), options);
+	temp_action.timestamp = mrpt::system::getCurrentTime();
+	action->insert(temp_action);
+}
+
+void ICPslamLiveWrapper::convertNeoToCObservation(const sensor_msgs::LaserScan &scan, CObservation2DRangeScan& obj) {
+	;
 }
