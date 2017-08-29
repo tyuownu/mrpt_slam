@@ -111,7 +111,7 @@ ICPslamLiveWrapper::~ICPslamLiveWrapper() {
 		ROS_INFO("Sensor thread is closed. Bye-bye!");
 
 		if (pRawLogASF->size() > 0) {
-			std::string filename = "pRawlogasoAf";
+			std::string filename = "pRawLogASF.rawlog";
 			pRawLogASF->saveToRawLogFile(filename);
 		}
 		delete pRawLogASF;
@@ -576,8 +576,8 @@ bool ICPslamLiveWrapper::run() {
 			last_odom_ = cur_odom_;
 			CSensoryFramePtr SF = CSensoryFrame::Create();
 			SF->insert(observation);
-			pRawLogASF->addActionsMemoryReference(action);
 			pRawLogASF->addObservationsMemoryReference(SF);
+			pRawLogASF->addActionsMemoryReference(action);
 
 			mapBuilder.processActionObservation(*action, *SF);
 			ROS_INFO("Map building executed");
@@ -653,6 +653,7 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
 	CActionRobotMovement2D temp_action;
 	double x = cur_odom_.pose.pose.position.x - last_odom_.pose.pose.position.x;
 	double y = cur_odom_.pose.pose.position.y - last_odom_.pose.pose.position.y;
+	double s = sqrt(x*x + y*y);
 	tf::Quaternion cur_quat, last_quat;
 	tf::quaternionMsgToTF(cur_odom_.pose.pose.orientation, cur_quat);
 	tf::quaternionMsgToTF(last_odom_.pose.pose.orientation, last_quat);
@@ -672,8 +673,12 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
 	ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f", x, y, last_roll, last_pitch, last_yaw);
 
 	CActionRobotMovement2D::TMotionModelOptions options;
-	temp_action.computeFromOdometry(CPose2D(x, y, cur_yaw - last_yaw), options);
-	temp_action.timestamp = mrpt::system::getCurrentTime();
+	double yaw = cur_yaw - last_yaw;
+	x = s * cos(last_yaw + yaw/2);
+	y = s * sin(last_yaw + yaw/2);
+	temp_action.computeFromOdometry(CPose2D(x, y, yaw), options);
+	//mrpt::system::TTimeStamp cur_time;
+	mrpt_bridge::convert(cur_odom_.header.stamp, temp_action.timestamp);
 	action->insert(temp_action);
 }
 
