@@ -673,9 +673,11 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
 	ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f", x, y, last_roll, last_pitch, last_yaw);
 
 	CActionRobotMovement2D::TMotionModelOptions options;
+	static double angle = 0;
 	double yaw = cur_yaw - last_yaw;
-	x = s * cos(last_yaw + yaw/2);
-	y = s * sin(last_yaw + yaw/2);
+	x = s * cos(angle + yaw/2);
+	y = s * sin(angle + yaw/2);
+	angle += yaw;
 	temp_action.computeFromOdometry(CPose2D(x, y, yaw), options);
 	//mrpt::system::TTimeStamp cur_time;
 	mrpt_bridge::convert(cur_odom_.header.stamp, temp_action.timestamp);
