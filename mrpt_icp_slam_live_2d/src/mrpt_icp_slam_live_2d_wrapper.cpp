@@ -409,7 +409,6 @@ void ICPslamLiveWrapper::odometryCallback(const nav_msgs::Odometry& odom) {
 }
 
 void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
-    ROS_INFO("Process scan!");
 	//CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
     CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
 
@@ -423,12 +422,10 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
     pRawLogASF->addActionsMemoryReference(action);
 
     mapBuilder.processActionObservation(*action, *SF);
-    ROS_INFO("MAP using scan");
 
 
     metric_map_ = mapBuilder.getCurrentlyBuiltMetricMap();
 
-    ROS_INFO("get pose");
     CPose3D robotPose;
     mapBuilder.getCurrentPoseEstimation()->getMean(robotPose);
 
@@ -438,7 +435,6 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
         pub_map_.publish(_msg);
         pub_metadata_.publish(_msg.info);
     }
-    ROS_INFO("get pose1");
 
     if (metric_map_->m_pointsMaps.size()) {
         sensor_msgs::PointCloud _msg;
@@ -456,7 +452,6 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
     pose.pose.position.z = 0.0;
     pose.pose.orientation = tf::createQuaternionMsgFromYaw(robotPose.yaw());
     pub_pose_.publish(pose);
-    ROS_INFO("write to estimated trajectory");
 
     f_estimated.printf("%f %f %f\n",
             mapBuilder.getCurrentPoseEstimation()->getMeanVal().x(),
@@ -464,7 +459,6 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
             mapBuilder.getCurrentPoseEstimation()->getMeanVal().yaw());
 
     run3Dwindow();
-    ROS_INFO("Process laser done");
 }
 
 
@@ -696,12 +690,6 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
 
 	double cur_roll, cur_pitch, cur_yaw;
 	double last_roll, last_pitch, last_yaw;
-	ROS_INFO("quaternion: x = %f, y = %f, z = %f, w = %f",
-			cur_odom_.pose.pose.orientation.x,
-			cur_odom_.pose.pose.orientation.y,
-			cur_odom_.pose.pose.orientation.z,
-			cur_odom_.pose.pose.orientation.w
-			);
 
 	tf::Matrix3x3(cur_quat).getRPY(cur_roll, cur_pitch, cur_yaw);
 	tf::Matrix3x3(last_quat).getRPY(last_roll, last_pitch, last_yaw);
