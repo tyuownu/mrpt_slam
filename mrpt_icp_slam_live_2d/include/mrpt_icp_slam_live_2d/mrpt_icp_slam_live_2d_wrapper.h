@@ -165,7 +165,7 @@ public:
 	 *
 	 * @param _msg  the laser scan message
 	 */
-	//void laserCallback(const sensor_msgs::LaserScan &_msg);
+	void laserCallback(const sensor_msgs::LaserScan &_msg);
 
 	/**
 	  * @brief  publis tf tree
@@ -190,7 +190,7 @@ public:
 
 	void publishTrajectoryTimerCallback(const ros::TimerEvent& event);
 
-	void convertNeoToCObservation(const sensor_msgs::LaserScan &scan, CObservation2DRangeScan& obj);
+	void convertNeoToCObservation(const sensor_msgs::LaserScan &scan, CObservation2DRangeScanPtr& obj);
 
 	void odometryCallback(const nav_msgs::Odometry& odom);
 
@@ -256,7 +256,7 @@ protected:
 
 	// thread relative
 	struct TThreadParams params;                                     ///< thread parameter
-	mrpt::system::TThreadHandle hSensorThread;                       ///< thread handle
+	//mrpt::system::TThreadHandle hSensorThread;                       ///< thread handle
 
 	// configure file
 	mrpt::utils::CConfigFile iniFile;                                ///< ini config file
@@ -271,6 +271,7 @@ protected:
 	nav_msgs::Odometry  cur_odom_, last_odom_;
 	bool b_first_odom;
 	ros::Subscriber odom_sub_;
+	ros::Subscriber laser_sub_;
 
 	CRawlog *pRawLogASF;
 

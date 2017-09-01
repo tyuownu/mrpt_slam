@@ -11,11 +11,17 @@ int main(int argc, char **argv)
 	ros::Duration(3).sleep();
 
 
-	if (!slam.run()) {
+    //	if (!slam.run()) {
 
 		while (ros::ok()) {
+            if (mrpt::system::os::kbhit()) {
+                const char c = mrpt::system::os::getch();
+                if (27 == c)
+                    break;
+            }
 			ros::spinOnce();
-			r.sleep();
+			//r.sleep();
 		}
-	}
+        ros::Duration(3).sleep();
+        //}
 }

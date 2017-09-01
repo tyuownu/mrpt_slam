@@ -5,6 +5,7 @@
  *
  */
 
+#include <mrpt/hwdrivers/C2DRangeFinderAbstract.h>
 #include "mrpt_icp_slam_live_2d/mrpt_icp_slam_live_2d_wrapper.h"
 #include <mrpt/version.h>
 #if MRPT_VERSION >= 0x150
@@ -107,7 +108,7 @@ ICPslamLiveWrapper::~ICPslamLiveWrapper() {
 			f << *scene;
 		}
 		allThreadsMustExit = true;
-		mrpt::system::joinThread(hSensorThread);
+		//mrpt::system::joinThread(hSensorThread);
 		ROS_INFO("Sensor thread is closed. Bye-bye!");
 
 		if (pRawLogASF->size() > 0) {
@@ -211,6 +212,7 @@ void ICPslamLiveWrapper::init3Dwindow() {
 }
 
 void ICPslamLiveWrapper::run3Dwindow() {
+    ROS_INFO("run3Dwindow");
 	// Create 3D window if requested (the code is copied from ../mrpt/apps/icp-slam/icp-slam_main.cpp):
 	if (SHOW_PROGRESS_3D_REAL_TIME && win3D_.present()) {
 		// get currently builded map
@@ -325,7 +327,7 @@ void ICPslamLiveWrapper::init() {
 	}
 
 	ROS_INFO("\n\n===== Launching LIDAR grabbing thread ===\n");
-	hSensorThread = mrpt::system::createThread(SensorThread, params);
+	//hSensorThread = mrpt::system::createThread(SensorThread, params);
 	if (allThreadsMustExit)
 		throw std::runtime_error("\n\n==== ABORTING: It seems that we could not connect to the LIDAR. See reported errors. ==== \n");
 	read_iniFile(ini_filename);
@@ -392,6 +394,7 @@ void ICPslamLiveWrapper::init() {
 	 *}
 	 */
 	odom_sub_ = n_.subscribe("/odom", 1, &ICPslamLiveWrapper::odometryCallback, this);
+    laser_sub_ = n_.subscribe("/scan", 1, &ICPslamLiveWrapper::laserCallback, this);
 
 	init3Dwindow();
 }
@@ -405,34 +408,67 @@ void ICPslamLiveWrapper::odometryCallback(const nav_msgs::Odometry& odom) {
 		cur_odom_ = odom;
 }
 
-#if 0
 void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
-#if MRPT_VERSION >= 0x130
-	using namespace mrpt::maps;
-	using namespace mrpt::obs;
-#else
-	using namespace mrpt::slam;
-#endif
-	CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
-	if (laser_poses_.find(_msg.header.frame_id) == laser_poses_.end()) {
-		updateSensorPose(_msg.header.frame_id);
-	} else {
-		mrpt::poses::CPose3D pose = laser_poses_[_msg.header.frame_id];
-		mrpt_bridge::convert(_msg, laser_poses_[_msg.header.frame_id], *laser);
-		// CObservationPtr obs = CObservationPtr(laser);
-		observation = CObservationPtr(laser);
-		stamp = ros::Time(0);
-		tictac.Tic();
-		mapBuilder.processObservation(observation);
-		t_exec = tictac.Tac();
-		ROS_INFO("Map building executed in %.03fms", 1000.0f * t_exec);
+    ROS_INFO("Process scan!");
+	//CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
+    CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
 
-		run3Dwindow();
-		publishTF();
-		publishMapPose();
-	}
+    convertNeoToCObservation(_msg, laser);
+    CActionCollectionPtr  action = CActionCollection::Create();
+    convertOdometry(action);
+    last_odom_ = cur_odom_;
+    CSensoryFramePtr SF = CSensoryFrame::Create();
+    SF->insert(laser);
+    pRawLogASF->addObservationsMemoryReference(SF);
+    pRawLogASF->addActionsMemoryReference(action);
+
+    mapBuilder.processActionObservation(*action, *SF);
+    ROS_INFO("MAP using scan");
+
+
+    metric_map_ = mapBuilder.getCurrentlyBuiltMetricMap();
+
+    ROS_INFO("get pose");
+    CPose3D robotPose;
+    mapBuilder.getCurrentPoseEstimation()->getMean(robotPose);
+
+    if (metric_map_->m_gridMaps.size()) {
+        nav_msgs::OccupancyGrid _msg;
+        mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
+        pub_map_.publish(_msg);
+        pub_metadata_.publish(_msg.info);
+    }
+    ROS_INFO("get pose1");
+
+    if (metric_map_->m_pointsMaps.size()) {
+        sensor_msgs::PointCloud _msg;
+        std_msgs::Header header;
+        header.stamp = ros::Time(0);
+        header.frame_id = global_frame_id;
+        mrpt_bridge::point_cloud::mrpt2ros(*metric_map_->m_pointsMaps[0], header, _msg);
+        pub_point_cloud_.publish(_msg);
+    }
+
+    // geometry_msgs::PoseStamped pose;
+    pose.header.frame_id = global_frame_id;
+    pose.pose.position.x = robotPose.x();
+    pose.pose.position.y = robotPose.y();
+    pose.pose.position.z = 0.0;
+    pose.pose.orientation = tf::createQuaternionMsgFromYaw(robotPose.yaw());
+    pub_pose_.publish(pose);
+    ROS_INFO("write to estimated trajectory");
+
+    f_estimated.printf("%f %f %f\n",
+            mapBuilder.getCurrentPoseEstimation()->getMeanVal().x(),
+            mapBuilder.getCurrentPoseEstimation()->getMeanVal().y(),
+            mapBuilder.getCurrentPoseEstimation()->getMeanVal().yaw());
+
+    run3Dwindow();
+    ROS_INFO("Process laser done");
 }
 
+
+#if 0
 void ICPslamLiveWrapper::publishMapPose() {
 	// get currently builded map
 	metric_map_ = mapBuilder.getCurrentlyBuiltMetricMap();
@@ -556,11 +592,11 @@ bool ICPslamLiveWrapper::run() {
 						update = true;
 					}
 
-				if (out_rawlog.fileOpenCorrectly()) {
-					for (mrpt::hwdrivers::CGenericSensor::TListObservations::iterator it = obs_copy.begin(); it!= obs_copy.end(); ++it)
-						if (it->second.present() && IS_CLASS(it->second, CObservation2DRangeScan))
-							out_rawlog << *it->second;
-				}
+				// if (out_rawlog.fileOpenCorrectly()) {
+				// 	for (mrpt::hwdrivers::CGenericSensor::TListObservations::iterator it = obs_copy.begin(); it!= obs_copy.end(); ++it)
+				// 		if (it->second.present() && IS_CLASS(it->second, CObservation2DRangeScan))
+				// 			out_rawlog << *it->second;
+				// }
 			}
 			if (!update) {
 				if (timeout_read_scans.Tac() > 1.0) {
@@ -684,6 +720,30 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
 	action->insert(temp_action);
 }
 
-void ICPslamLiveWrapper::convertNeoToCObservation(const sensor_msgs::LaserScan &scan, CObservation2DRangeScan& obj) {
-	;
+void ICPslamLiveWrapper::convertNeoToCObservation(const sensor_msgs::LaserScan &scan, CObservation2DRangeScanPtr& obj) {
+	size_t count = 360;
+
+    obj->resizeScanAndAssign(count, 0, false);
+    for (size_t i = 0; i < count; i++) {
+        float value = 0;
+        if ( scan.ranges[i] <= scan.range_max )
+            value = scan.ranges[i];
+        obj->setScanRange(i, value);
+        obj->setScanRangeValidity(i, (value>0));
+    }
+
+	mrpt_bridge::convert(scan.header.stamp, obj->timestamp);
+	obj->rightToLeft = false;
+	obj->aperture    = 2*M_PI;
+	obj->maxRange    = scan.range_max;
+	obj->stdError    = 0.010f;
+	obj->sensorPose  = CPose3D(0,/* x */ 0,/* y */ 0,/* z */
+                             0,/* yaw */ 0,/* pitch */ 0 /* roll */);
+	obj->sensorLabel = scan.header.frame_id;
+
+    // mrpt::hwdrivers::C2DRangeFinderAbstract::filterByExclusionAreas( obj );
+    // mrpt::hwdrivers::C2DRangeFinderAbstract::filterByExclusionAngles( obj );
+
+    // mrpt::hwdrivers::C2DRangeFinderAbstract::processPreview( obj );
+
 }
