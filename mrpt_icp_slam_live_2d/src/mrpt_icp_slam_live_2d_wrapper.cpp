@@ -393,7 +393,7 @@ void ICPslamLiveWrapper::init() {
 	 *    }
 	 *}
 	 */
-	odom_sub_ = n_.subscribe("/odom", 1, &ICPslamLiveWrapper::odometryCallback, this);
+	odom_sub_ = n_.subscribe("/odom", 5, &ICPslamLiveWrapper::odometryCallback, this);
     laser_sub_ = n_.subscribe("/scan", 1, &ICPslamLiveWrapper::laserCallback, this);
 
 	init3Dwindow();
@@ -418,8 +418,12 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
     last_odom_ = cur_odom_;
     CSensoryFramePtr SF = CSensoryFrame::Create();
     SF->insert(laser);
-    pRawLogASF->addObservationsMemoryReference(SF);
-    pRawLogASF->addActionsMemoryReference(action);
+
+	// save the rawlog?
+	if (SAVE_RAWLOG) {
+		pRawLogASF->addObservationsMemoryReference(SF);
+		pRawLogASF->addActionsMemoryReference(action);
+	}
 
     mapBuilder.processActionObservation(*action, *SF);
 
@@ -581,7 +585,7 @@ bool ICPslamLiveWrapper::run() {
 				for (mrpt::hwdrivers::CGenericSensor::TListObservations::reverse_iterator it = obs_copy.rbegin(); it != obs_copy.rend(); ++it)
 					if (it->second.present() && IS_CLASS(it->second,CObservation2DRangeScan))
 					{
-						ROS_INFO("observation update");
+//						ROS_INFO("observation update");
 						observation = CObservation2DRangeScanPtr(it->second);
 						update = true;
 					}
@@ -610,7 +614,7 @@ bool ICPslamLiveWrapper::run() {
 			pRawLogASF->addActionsMemoryReference(action);
 
 			mapBuilder.processActionObservation(*action, *SF);
-			ROS_INFO("Map building executed");
+//			ROS_INFO("Map building executed");
 			/*
 			 *mrpt::system::TTimeParts parts;
 			 *mrpt::system::timestampToParts(observation->timestamp, parts, true);
@@ -667,7 +671,7 @@ bool ICPslamLiveWrapper::run() {
 
 void ICPslamLiveWrapper::updateTrajectoryTimerCallback(const ros::TimerEvent& event)
 {
-	ROS_DEBUG("update trajectory");
+//	ROS_DEBUG("update trajectory");
 	path.header.frame_id = global_frame_id;
 	path.header.stamp = ros::Time(0);
 	path.poses.push_back(pose);
@@ -675,7 +679,7 @@ void ICPslamLiveWrapper::updateTrajectoryTimerCallback(const ros::TimerEvent& ev
 
 void ICPslamLiveWrapper::publishTrajectoryTimerCallback(const ros::TimerEvent& event)
 {
-	ROS_DEBUG("publish trajectory");
+//	ROS_DEBUG("publish trajectory");
 	trajectory_pub_.publish(path);
 }
 
@@ -683,7 +687,6 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
 	CActionRobotMovement2D temp_action;
 	double x = cur_odom_.pose.pose.position.x - last_odom_.pose.pose.position.x;
 	double y = cur_odom_.pose.pose.position.y - last_odom_.pose.pose.position.y;
-	double s = sqrt(x*x + y*y);
 	tf::Quaternion cur_quat, last_quat;
 	tf::quaternionMsgToTF(cur_odom_.pose.pose.orientation, cur_quat);
 	tf::quaternionMsgToTF(last_odom_.pose.pose.orientation, last_quat);
@@ -693,16 +696,21 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
 
 	tf::Matrix3x3(cur_quat).getRPY(cur_roll, cur_pitch, cur_yaw);
 	tf::Matrix3x3(last_quat).getRPY(last_roll, last_pitch, last_yaw);
-	ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f", x, y, cur_roll, cur_pitch, cur_yaw);
-	ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f", x, y, last_roll, last_pitch, last_yaw);
+	//ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f", x, y, cur_roll, cur_pitch, cur_yaw);
+	//ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f", x, y, last_roll, last_pitch, last_yaw);
 
 	CActionRobotMovement2D::TMotionModelOptions options;
-	static double angle = 0;
-	double yaw = cur_yaw - last_yaw;
-	x = s * cos(angle + yaw/2);
-	y = s * sin(angle + yaw/2);
-	angle += yaw;
-	temp_action.computeFromOdometry(CPose2D(x, y, yaw), options);
+	if (isNaN(cur_yaw) || isNaN(last_yaw))
+		temp_action.computeFromOdometry(CPose2D(0, 0, 0), options);
+	else {
+		static double angle = last_yaw;
+		double yaw = cur_yaw - last_yaw;
+		double d_x =  x * cos(angle) + y * sin(angle);
+		double d_y = -x * sin(angle) + y * cos(angle);
+		ROS_INFO("angle: %f, dx: %f, dy: %f, yaw: %f", angle, d_x, d_y, yaw);
+		angle += yaw;
+		temp_action.computeFromOdometry(CPose2D(d_x, d_y, yaw), options);
+	}
 	//mrpt::system::TTimeStamp cur_time;
 	mrpt_bridge::convert(cur_odom_.header.stamp, temp_action.timestamp);
 	action->insert(temp_action);
