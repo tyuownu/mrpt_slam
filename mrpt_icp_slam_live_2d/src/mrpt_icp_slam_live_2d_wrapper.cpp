@@ -79,6 +79,8 @@ ICPslamLiveWrapper::ICPslamLiveWrapper() {
 
 }
 
+CPose3D ICPslamLiveWrapper::laser_base_pose_ = CPose3D(0, 0, 0, 0, 0, 0);
+
 ICPslamLiveWrapper::~ICPslamLiveWrapper() {
 	try {
 		std::string sOutMap = "mrpt_icpslam_";
@@ -212,7 +214,6 @@ void ICPslamLiveWrapper::init3Dwindow() {
 }
 
 void ICPslamLiveWrapper::run3Dwindow() {
-    ROS_INFO("run3Dwindow");
 	// Create 3D window if requested (the code is copied from ../mrpt/apps/icp-slam/icp-slam_main.cpp):
 	if (SHOW_PROGRESS_3D_REAL_TIME && win3D_.present()) {
 		// get currently builded map
@@ -394,7 +395,7 @@ void ICPslamLiveWrapper::init() {
 	 *}
 	 */
 	odom_sub_ = n_.subscribe("/odom", 5, &ICPslamLiveWrapper::odometryCallback, this);
-    laser_sub_ = n_.subscribe("/scan", 1, &ICPslamLiveWrapper::laserCallback, this);
+	laser_sub_ = n_.subscribe("/scan", 1, &ICPslamLiveWrapper::laserCallback, this);
 
 	init3Dwindow();
 }
@@ -410,14 +411,15 @@ void ICPslamLiveWrapper::odometryCallback(const nav_msgs::Odometry& odom) {
 
 void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
 	//CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
-    CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
+	CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
 
-    convertNeoToCObservation(_msg, laser);
-    CActionCollectionPtr  action = CActionCollection::Create();
-    convertOdometry(action);
-    last_odom_ = cur_odom_;
-    CSensoryFramePtr SF = CSensoryFrame::Create();
-    SF->insert(laser);
+	//convertNeoToCObservation(_msg, laser);
+	mrpt_bridge::convert(_msg, laser_base_pose_, *laser);
+	CActionCollectionPtr  action = CActionCollection::Create();
+	convertOdometry(action);
+	last_odom_ = cur_odom_;
+	CSensoryFramePtr SF = CSensoryFrame::Create();
+	SF->insert(laser);
 
 	// save the rawlog?
 	if (SAVE_RAWLOG) {
@@ -425,44 +427,45 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
 		pRawLogASF->addActionsMemoryReference(action);
 	}
 
-    mapBuilder.processActionObservation(*action, *SF);
+	mapBuilder.processActionObservation(*action, *SF);
+	//mapBuilder.processObservation(CObservationPtr(laser));
 
 
-    metric_map_ = mapBuilder.getCurrentlyBuiltMetricMap();
+	metric_map_ = mapBuilder.getCurrentlyBuiltMetricMap();
 
-    CPose3D robotPose;
-    mapBuilder.getCurrentPoseEstimation()->getMean(robotPose);
+	CPose3D robotPose;
+	mapBuilder.getCurrentPoseEstimation()->getMean(robotPose);
 
-    if (metric_map_->m_gridMaps.size()) {
-        nav_msgs::OccupancyGrid _msg;
-        mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
-        pub_map_.publish(_msg);
-        pub_metadata_.publish(_msg.info);
-    }
+	if (metric_map_->m_gridMaps.size()) {
+		nav_msgs::OccupancyGrid _msg;
+		mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
+		pub_map_.publish(_msg);
+		pub_metadata_.publish(_msg.info);
+	}
 
-    if (metric_map_->m_pointsMaps.size()) {
-        sensor_msgs::PointCloud _msg;
-        std_msgs::Header header;
-        header.stamp = ros::Time(0);
-        header.frame_id = global_frame_id;
-        mrpt_bridge::point_cloud::mrpt2ros(*metric_map_->m_pointsMaps[0], header, _msg);
-        pub_point_cloud_.publish(_msg);
-    }
+	if (metric_map_->m_pointsMaps.size()) {
+		sensor_msgs::PointCloud _msg;
+		std_msgs::Header header;
+		header.stamp = ros::Time(0);
+		header.frame_id = global_frame_id;
+		mrpt_bridge::point_cloud::mrpt2ros(*metric_map_->m_pointsMaps[0], header, _msg);
+		pub_point_cloud_.publish(_msg);
+	}
 
-    // geometry_msgs::PoseStamped pose;
-    pose.header.frame_id = global_frame_id;
-    pose.pose.position.x = robotPose.x();
-    pose.pose.position.y = robotPose.y();
-    pose.pose.position.z = 0.0;
-    pose.pose.orientation = tf::createQuaternionMsgFromYaw(robotPose.yaw());
-    pub_pose_.publish(pose);
+	// geometry_msgs::PoseStamped pose;
+	pose.header.frame_id = global_frame_id;
+	pose.pose.position.x = robotPose.x();
+	pose.pose.position.y = robotPose.y();
+	pose.pose.position.z = 0.0;
+	pose.pose.orientation = tf::createQuaternionMsgFromYaw(robotPose.yaw());
+	pub_pose_.publish(pose);
 
-    f_estimated.printf("%f %f %f\n",
-            mapBuilder.getCurrentPoseEstimation()->getMeanVal().x(),
-            mapBuilder.getCurrentPoseEstimation()->getMeanVal().y(),
-            mapBuilder.getCurrentPoseEstimation()->getMeanVal().yaw());
+	f_estimated.printf("%f %f %f\n",
+			mapBuilder.getCurrentPoseEstimation()->getMeanVal().x(),
+			mapBuilder.getCurrentPoseEstimation()->getMeanVal().y(),
+			mapBuilder.getCurrentPoseEstimation()->getMeanVal().yaw());
 
-    run3Dwindow();
+	run3Dwindow();
 }
 
 
@@ -707,39 +710,11 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
 		double yaw = cur_yaw - last_yaw;
 		double d_x =  x * cos(angle) + y * sin(angle);
 		double d_y = -x * sin(angle) + y * cos(angle);
-		ROS_INFO("angle: %f, dx: %f, dy: %f, yaw: %f", angle, d_x, d_y, yaw);
+		// ROS_INFO("angle: %f, dx: %f, dy: %f, yaw: %f", angle, d_x, d_y, yaw);
 		angle += yaw;
 		temp_action.computeFromOdometry(CPose2D(d_x, d_y, yaw), options);
 	}
 	//mrpt::system::TTimeStamp cur_time;
 	mrpt_bridge::convert(cur_odom_.header.stamp, temp_action.timestamp);
 	action->insert(temp_action);
-}
-
-void ICPslamLiveWrapper::convertNeoToCObservation(const sensor_msgs::LaserScan &scan, CObservation2DRangeScanPtr& obj) {
-	size_t count = 360;
-
-    obj->resizeScanAndAssign(count, 0, false);
-    for (size_t i = 0; i < count; i++) {
-        float value = 0;
-        if ( scan.ranges[i] <= scan.range_max )
-            value = scan.ranges[i];
-        obj->setScanRange(i, value);
-        obj->setScanRangeValidity(i, (value>0));
-    }
-
-	mrpt_bridge::convert(scan.header.stamp, obj->timestamp);
-	obj->rightToLeft = false;
-	obj->aperture    = 2*M_PI;
-	obj->maxRange    = scan.range_max;
-	obj->stdError    = 0.010f;
-	obj->sensorPose  = CPose3D(0,/* x */ 0,/* y */ 0,/* z */
-                             0,/* yaw */ 0,/* pitch */ 0 /* roll */);
-	obj->sensorLabel = scan.header.frame_id;
-
-    // mrpt::hwdrivers::C2DRangeFinderAbstract::filterByExclusionAreas( obj );
-    // mrpt::hwdrivers::C2DRangeFinderAbstract::filterByExclusionAngles( obj );
-
-    // mrpt::hwdrivers::C2DRangeFinderAbstract::processPreview( obj );
-
 }

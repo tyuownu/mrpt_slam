@@ -190,8 +190,6 @@ public:
 
 	void publishTrajectoryTimerCallback(const ros::TimerEvent& event);
 
-	void convertNeoToCObservation(const sensor_msgs::LaserScan &scan, CObservation2DRangeScanPtr& obj);
-
 	void odometryCallback(const nav_msgs::Odometry& odom);
 
 	void convertOdometry(CActionCollectionPtr) const;
@@ -274,6 +272,9 @@ protected:
 	ros::Subscriber laser_sub_;
 
 	CRawlog *pRawLogASF;
+
+    // pose between laser and base;
+    static CPose3D laser_base_pose_;
 
 };
 
