@@ -197,6 +197,9 @@ void ICPslamLiveWrapper::get_param() {
 	n_.param("trajectory_publish_rate", trajectory_publish_rate, 5.0);
 	ROS_INFO("trajectory_publish_rate: %f", trajectory_publish_rate);
 
+	n_.param("using_odometry", using_odometry_, true);
+	ROS_INFO_STREAM("using_odometry: " << using_odometry_ ? "yes" : "no");
+
 	//mrpt::utils::CConfigFile iniFile(ini_filename);
 	params.cfgFile = &iniFile;
 	params.section_name = "LIDAR_SENSOR";
@@ -376,26 +379,9 @@ void ICPslamLiveWrapper::init() {
 	publish_trajectory_timer = n_.createTimer(ros::Duration(1.0 / trajectory_publish_rate),
 			&ICPslamLiveWrapper::publishTrajectoryTimerCallback, this, false);
 
-	// read sensor topics
-	/*
-	 *std::vector<std::string> lstSources;
-	 *mrpt::system::tokenize(sensor_source, " ,\t\n", lstSources);
-	 *ROS_ASSERT_MSG(!lstSources.empty(), "*Fatal*: At least one sensor source must be provided in ~sensor_sources (e.g. " "\"scan\" or \"beacon\")");
-	 */
-
-	/// Create subscribers///
-	/*
-	 *sensorSub_.resize(lstSources.size());
-	 *for (size_t i = 0; i < lstSources.size(); i++) {
-	 *    if (lstSources[i].find("scan") != std::string::npos) {
-	 *        sensorSub_[i] = n_.subscribe(lstSources[i], 1, &ICPslamLiveWrapper::laserCallback, this);
-	 *    } else {
-	 *        std::cout << "Sensor topics should be 2d laser scans which inlude in the name the word scan " << "\n";
-	 *    }
-	 *}
-	 */
-	odom_sub_ = n_.subscribe("/odom", 5, &ICPslamLiveWrapper::odometryCallback, this);
 	laser_sub_ = n_.subscribe("/scan", 1, &ICPslamLiveWrapper::laserCallback, this);
+	if (using_odometry_)
+		odom_sub_ = n_.subscribe("/odom", 5, &ICPslamLiveWrapper::odometryCallback, this);
 
 	init3Dwindow();
 }
@@ -413,23 +399,25 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
 	//CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
 	CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
 
-	//convertNeoToCObservation(_msg, laser);
+	// convert to mrpt lidar scan
 	mrpt_bridge::convert(_msg, laser_base_pose_, *laser);
-	CActionCollectionPtr  action = CActionCollection::Create();
-	convertOdometry(action);
-	last_odom_ = cur_odom_;
-	CSensoryFramePtr SF = CSensoryFrame::Create();
-	SF->insert(laser);
+	if (using_odometry_) {
+		CActionCollectionPtr  action = CActionCollection::Create();
+		convertOdometry(action);
 
-	// save the rawlog?
-	if (SAVE_RAWLOG) {
-		pRawLogASF->addObservationsMemoryReference(SF);
-		pRawLogASF->addActionsMemoryReference(action);
+		last_odom_ = cur_odom_;
+		CSensoryFramePtr SF = CSensoryFrame::Create();
+		SF->insert(laser);
+
+		// save the rawlog?
+		if (SAVE_RAWLOG) {
+			pRawLogASF->addObservationsMemoryReference(SF);
+			pRawLogASF->addActionsMemoryReference(action);
+		}
+		mapBuilder.processActionObservation(*action, *SF);
+	} else {
+		mapBuilder.processObservation(CObservationPtr(laser));
 	}
-
-	mapBuilder.processActionObservation(*action, *SF);
-	//mapBuilder.processObservation(CObservationPtr(laser));
-
 
 	metric_map_ = mapBuilder.getCurrentlyBuiltMetricMap();
 
@@ -466,210 +454,6 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
 			mapBuilder.getCurrentPoseEstimation()->getMeanVal().yaw());
 
 	run3Dwindow();
-}
-
-
-#if 0
-void ICPslamLiveWrapper::publishMapPose() {
-	// get currently builded map
-	metric_map_ = mapBuilder.getCurrentlyBuiltMetricMap();
-
-	// publish map
-	if (metric_map_->m_gridMaps.size()) {
-		nav_msgs::OccupancyGrid _msg;
-		// if we have new map for current sensor update it
-		mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
-		pub_map_.publish(_msg);
-		pub_metadata_.publish(_msg.info);
-	}
-
-	if (metric_map_->m_pointsMaps.size()) {
-		sensor_msgs::PointCloud _msg;
-		std_msgs::Header header;
-		header.stamp = ros::Time(0);
-		header.frame_id = global_frame_id;
-		// if we have new map for current sensor update it
-		mrpt_bridge::point_cloud::mrpt2ros(*metric_map_->m_pointsMaps[0], header, _msg);
-		pub_point_cloud_.publish(_msg);
-	}
-
-	CPose3D robotPose;
-	mapBuilder.getCurrentPoseEstimation()->getMean(robotPose);
-
-	// publish pose
-	geometry_msgs::PoseStamped pose;
-	pose.header.frame_id = global_frame_id;
-
-	// the pose
-	pose.pose.position.x = robotPose.x();
-	pose.pose.position.y = robotPose.y();
-	pose.pose.position.z = 0.0;
-	pose.pose.orientation = tf::createQuaternionMsgFromYaw(robotPose.yaw());
-
-	pub_pose_.publish(pose);
-}
-
-void ICPslamLiveWrapper::updateSensorPose(std::string _frame_id) {
-	CPose3D pose;
-	tf::StampedTransform transform;
-	try {
-		listenerTF_.lookupTransform(base_frame_id, _frame_id, ros::Time(0), transform);
-
-		tf::Vector3 translation = transform.getOrigin();
-		tf::Quaternion quat = transform.getRotation();
-		pose.x() = translation.x();
-		pose.y() = translation.y();
-		pose.z() = translation.z();
-		double roll, pitch, yaw;
-		tf::Matrix3x3 Rsrc(quat);
-		CMatrixDouble33 Rdes;
-		for (int c = 0; c < 3; c++)
-			for (int r = 0; r < 3; r++)
-				Rdes(r, c) = Rsrc.getRow(r)[c];
-		pose.setRotationMatrix(Rdes);
-		laser_poses_[_frame_id] = pose;
-	}
-	catch (tf::TransformException ex) {
-		ROS_ERROR("%s", ex.what());
-		ros::Duration(1.0).sleep();
-	}
-}
-
-void ICPslamLiveWrapper::publishTF() {
-	// Most of this code was copy and pase from ros::amcl
-	mrpt::poses::CPose3D robotPoseTF;
-	mapBuilder.getCurrentPoseEstimation()->getMean(robotPoseTF);
-
-	stamp = ros::Time(0);
-	tf::Stamped<tf::Pose> odom_to_map;
-	tf::Transform tmp_tf;
-	mrpt_bridge::convert(robotPoseTF, tmp_tf);
-
-	try {
-		tf::Stamped<tf::Pose> tmp_tf_stamped(tmp_tf.inverse(), stamp, base_frame_id);
-		listenerTF_.transformPose(odom_frame_id, tmp_tf_stamped, odom_to_map);
-	}
-	catch (tf::TransformException) {
-		ROS_INFO("Failed to subtract global_frame (%s) from odom_frame (%s)", global_frame_id.c_str(), odom_frame_id.c_str());
-		return;
-	}
-
-	tf::Transform latest_tf_ =
-		tf::Transform(tf::Quaternion(odom_to_map.getRotation()), tf::Point(odom_to_map.getOrigin()));
-
-	tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(), stamp, global_frame_id, odom_frame_id);
-
-	tf_broadcaster_.sendTransform(tmp_tf_stamped);
-}
-#endif
-
-
-bool ICPslamLiveWrapper::run() {
-	CTicTac timeout_read_scans;
-	bool first_time_process = true;
-	while (!allThreadsMustExit) {
-		if (ros::ok()) {
-			if (mrpt::system::os::kbhit()) {
-				const char c = mrpt::system::os::getch();
-				if (27 == c)
-					break;
-			}
-			if (win3D_ && !win3D_->isOpen()) break;
-
-			//CObservation2DRangeScanPtr temp;
-			bool update = false;
-			{
-				mrpt::hwdrivers::CGenericSensor::TListObservations obs_copy;
-				{
-					mrpt::synch::CCriticalSectionLocker csl(&cs_global_list_obs);
-					obs_copy = global_list_obs;
-					global_list_obs.clear();
-				}
-				for (mrpt::hwdrivers::CGenericSensor::TListObservations::reverse_iterator it = obs_copy.rbegin(); it != obs_copy.rend(); ++it)
-					if (it->second.present() && IS_CLASS(it->second,CObservation2DRangeScan))
-					{
-//						ROS_INFO("observation update");
-						observation = CObservation2DRangeScanPtr(it->second);
-						update = true;
-					}
-
-				// if (out_rawlog.fileOpenCorrectly()) {
-				// 	for (mrpt::hwdrivers::CGenericSensor::TListObservations::iterator it = obs_copy.begin(); it!= obs_copy.end(); ++it)
-				// 		if (it->second.present() && IS_CLASS(it->second, CObservation2DRangeScan))
-				// 			out_rawlog << *it->second;
-				// }
-			}
-			if (!update) {
-				if (timeout_read_scans.Tac() > 1.0) {
-					timeout_read_scans.Tic();
-					ROS_INFO("Waiting for laser scans");
-				}
-				mrpt::system::sleep(1);
-				continue;
-			} else { timeout_read_scans.Tic(); }
-			//last_odom_ = cur_odom_;
-			CActionCollectionPtr action = CActionCollection::Create();
-			convertOdometry(action);
-			last_odom_ = cur_odom_;
-			CSensoryFramePtr SF = CSensoryFrame::Create();
-			SF->insert(observation);
-			pRawLogASF->addObservationsMemoryReference(SF);
-			pRawLogASF->addActionsMemoryReference(action);
-
-			mapBuilder.processActionObservation(*action, *SF);
-//			ROS_INFO("Map building executed");
-			/*
-			 *mrpt::system::TTimeParts parts;
-			 *mrpt::system::timestampToParts(observation->timestamp, parts, true);
-			 *ROS_INFO("observation timestamp: %ld --> %04u-%02u-%02u:%02uh%02um%02fs",
-			 *         observation->timestamp,
-			 *         (unsigned int)parts.year,
-			 *         (unsigned int)parts.month,
-			 *         (unsigned int)parts.day,
-			 *         (unsigned int)parts.hour,
-			 *         (unsigned int)parts.minute,
-			 *         parts.second);
-			 */
-			metric_map_ = mapBuilder.getCurrentlyBuiltMetricMap();
-
-			CPose3D robotPose;
-			mapBuilder.getCurrentPoseEstimation()->getMean(robotPose);
-
-			if (metric_map_->m_gridMaps.size()) {
-				nav_msgs::OccupancyGrid _msg;
-				mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
-				pub_map_.publish(_msg);
-				pub_metadata_.publish(_msg.info);
-			}
-
-			if (metric_map_->m_pointsMaps.size()) {
-				sensor_msgs::PointCloud _msg;
-				std_msgs::Header header;
-				header.stamp = ros::Time(0);
-				header.frame_id = global_frame_id;
-				mrpt_bridge::point_cloud::mrpt2ros(*metric_map_->m_pointsMaps[0], header, _msg);
-				pub_point_cloud_.publish(_msg);
-			}
-
-			// geometry_msgs::PoseStamped pose;
-			pose.header.frame_id = global_frame_id;
-			pose.pose.position.x = robotPose.x();
-			pose.pose.position.y = robotPose.y();
-			pose.pose.position.z = 0.0;
-			pose.pose.orientation = tf::createQuaternionMsgFromYaw(robotPose.yaw());
-			pub_pose_.publish(pose);
-
-			f_estimated.printf("%f %f %f\n",
-					mapBuilder.getCurrentPoseEstimation()->getMeanVal().x(),
-					mapBuilder.getCurrentPoseEstimation()->getMeanVal().y(),
-					mapBuilder.getCurrentPoseEstimation()->getMeanVal().yaw());
-
-		}
-		run3Dwindow();
-		ros::spinOnce();
-
-	}
-	return true;
 }
 
 void ICPslamLiveWrapper::updateTrajectoryTimerCallback(const ros::TimerEvent& event)

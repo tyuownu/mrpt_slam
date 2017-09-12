@@ -274,7 +274,9 @@ protected:
 	CRawlog *pRawLogASF;
 
     // pose between laser and base;
-    static CPose3D laser_base_pose_;
+	static CPose3D laser_base_pose_;
+	bool using_odometry_;
+
 
 };
 

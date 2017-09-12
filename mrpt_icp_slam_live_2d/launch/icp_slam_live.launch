@@ -10,6 +10,7 @@
   <param name="sensor_source" value="r1/front_laser/scan"/>
   <param name="trajectory_update_rate" value="10"/>
   <param name="trajectory_publish_rate" value="5"/>
+  <param name="using_odometry" value="true"/>
   <env name="ROSCONSOLE_CONFIG_FILE" value="$(find mrpt_icp_slam_live_2d)/config/rosconsole.config"/>
 
   <!--PLAY BAG FILE-->
