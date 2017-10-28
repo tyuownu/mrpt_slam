@@ -1,9 +1,10 @@
-/*
- * File: mrpt_icp_slam_live_2d_wrapper.h
- * Author: tyu
- * Reference: Vladislav Tananaev(mrpt_icp_slam_2d)
- *
- */
+/**
+  * @file mrpt_icp_slam_live_2d_wrapper.h
+  * @brief the main class of live mrpt icpslam, reference to mrpt_icp_slam_2d.
+  *
+  * @author tyuownu@gmail.com
+  *
+  */
 
 #ifndef MRPT_ICP_SLAM_LIVE_2D_WRAPPER_H
 #define MRPT_ICP_SLAM_LIVE_2D_WRAPPER_H
@@ -20,7 +21,9 @@
 #include <mrpt/system/os.h>
 #include <mrpt/system/threads.h>
 #include <mrpt/system/filesystem.h>
-#include <mrpt/opengl/CPlanarLaserScan.h>  // This class lives in the lib [mrpt-maps] and must be included by hand
+
+// This class lives in the lib [mrpt-maps] and must be included by hand
+#include <mrpt/opengl/CPlanarLaserScan.h>
 #include <mrpt/poses/CPosePDFGaussian.h>
 #include <mrpt/poses/CPose3DPDF.h>
 
@@ -91,191 +94,246 @@ using namespace mrpt::poses;
 using namespace std;
 
 /**
- * @brief The ICPslamLiveWrapper class provides 2d icp based SLAM from MRPT libraries.
+ * @brief The ICPslamLiveWrapper provides 2d icp based SLAM from MRPT libraries.
  *
  */
 class ICPslamLiveWrapper
 {
 public:
-	/**
-	 *  @brief Thread relative parameter
-	 */
-	struct TThreadParams {
-		mrpt::utils::CConfigFile *cfgFile;
-		string section_name;
-	};
+  /**
+   *  @brief Thread relative parameter
+   */
+  struct TThreadParams {
+    mrpt::utils::CConfigFile *cfgFile;
+    string section_name;
+  };
 
-	/**
-	 * @brief constructor
-	 */
-	ICPslamLiveWrapper();
-	
-	/**
-	* @brief destructor
-	*/
-	~ICPslamLiveWrapper();
+  /**
+   * @brief constructor
+   */
+  ICPslamLiveWrapper();
+  
+  /**
+  * @brief destructor
+  */
+  ~ICPslamLiveWrapper();
 
-	/**
-	 * @brief read ini file
-	 *
-	 * @param ini_filename the name of the ini file to read
-	 */
-	void read_iniFile(std::string ini_filename);
+  /**
+   * @brief read ini file
+   *
+   * @param ini_filename the name of the ini file to read
+   */
+  void read_iniFile(std::string ini_filename);
 
-	/**
-	 * @brief init 3D window from mrpt lib
-	 */
-	void init3Dwindow();
+  /**
+   * @brief init 3D window from mrpt lib
+   */
+  void init3Dwindow();
 
-	/**
-	 * @brief run 3D window update from mrpt lib
-	 */
-	void run3Dwindow();
+  /**
+   * @brief run 3D window update from mrpt lib
+   */
+  void run3Dwindow();
 
-	/**
-	 * @brief read the parameters from launch file
-	 */
-	void get_param();
-	
-	/**
-	 * @brief initialize publishers subscribers and icp slam
-	 */
-	void init();
-	
-	/**
-	 * @brief play rawlog file
-	 *
-	 * @return true if rawlog file exists and played
-	 */
-	bool run();
+  /**
+   * @brief read the parameters from launch file
+   */
+  void get_param();
+  
+  /**
+   * @brief initialize publishers subscribers and icp slam
+   */
+  void init();
+  
+  /**
+   * @brief check the existance of the file
+   *
+   * @return true if file exists
+   */
+  bool is_file_exists(const std::string &name);
 
-	/**
-	 * @brief check the existance of the file
-	 *
-	 * @return true if file exists
-	 */
-	bool is_file_exists(const std::string &name);
+  /**
+   * @brief callback function for the laser scans
+   *
+   * Given the laser scans,
+   * implement one SLAM update,
+   * publish map and pose.
+   *
+   * @param _msg  the laser scan message
+   */
+  void laserCallback(const sensor_msgs::LaserScan &_msg);
 
-	/**
-	 * @brief callback function for the laser scans
-	 *
-	 * Given the laser scans,
-	 * implement one SLAM update,
-	 * publish map and pose.
-	 *
-	 * @param _msg  the laser scan message
-	 */
-	void laserCallback(const sensor_msgs::LaserScan &_msg);
+  /**
+    * @brief  publis tf tree
+    *
+    */
+  //void publishTF();
 
-	/**
-	  * @brief  publis tf tree
-	  *
-	  */
-	//void publishTF();
+  /**
+  * @brief publish point and/or grid map and robot pose
+  *
+  */
+  //void publishMapPose();
 
-	/**
-	* @brief publish point and/or grid map and robot pose
-	*
-	*/
-	//void publishMapPose();
+  /**
+    * @brief  update the pose of the sensor with respect to the robot
+    *
+    *@param frame_id the frame of the sensors
+    */
+  //void updateSensorPose(std::string _frame_id);
 
-	/**
-	  * @brief  update the pose of the sensor with respect to the robot
-	  *
-	  *@param frame_id the frame of the sensors
-	  */
-	//void updateSensorPose(std::string _frame_id);
+  /**
+    * @brief  the trajectory update timer callback function
+    *
+    * @param event timer event
+    */
+  void updateTrajectoryTimerCallback(const ros::TimerEvent& event);
 
-	void updateTrajectoryTimerCallback(const ros::TimerEvent& event);
+  /**
+    * @brief  the trajectory publish timer callback function
+    *
+    * @param event timer event
+    */
+  void publishTrajectoryTimerCallback(const ros::TimerEvent& event);
 
-	void publishTrajectoryTimerCallback(const ros::TimerEvent& event);
+  /**
+    * @brief  odometry callback function
+    *
+    * @param event timer event
+    */
+  void odometryCallback(const nav_msgs::Odometry& odom);
 
-	void odometryCallback(const nav_msgs::Odometry& odom);
-
-	void convertOdometry(CActionCollectionPtr) const;
+  /**
+    * @brief  convert ROS odom to mrpt CActionCollection
+    *
+    * @param action fill the action collection using ROS odom
+    */
+  void convertOdometry(CActionCollectionPtr action) const;
 
 
 protected:
-	CMetricMapBuilderICP mapBuilder;                                 ///< icp slam class
-	ros::NodeHandle n_;                                              ///< Node Handle
+  /// icp slam class
+  CMetricMapBuilderICP mapBuilder_;
+  /// Node Handle
+  ros::NodeHandle n_;
 
-	std::string ini_filename;                                        ///< name of ini file
-	std::string global_frame_id;                                     ///< /map frame
-	std::string odom_frame_id;                                       ///< /odom frame
-	std::string base_frame_id;                                       ///< robot frame
-	geometry_msgs::PoseStamped pose;
+  /// name of ini file
+  std::string ini_filename_;
+  /// /map frame
+  std::string global_frame_id_;
+  /// /odom frame
+  std::string odom_frame_id_;
+  /// robot frame
+  std::string base_frame_id_;
+  /// robot pose
+  geometry_msgs::PoseStamped pose_;
 
-	ros::Publisher trajectory_pub_;  ///< trajectory publisher
-	nav_msgs::Path path;             ///< trajectory path
+  /// trajectory publisher
+  ros::Publisher trajectory_pub_;
+  /// trajectory path
+  nav_msgs::Path path_;
 
-	ros::Timer update_trajector_timer;
-	ros::Timer publish_trajectory_timer;
+  // trajectory relative
+  /// trajectory update timer
+  ros::Timer update_trajector_timer_;
+  /// trajectory publish timer
+  ros::Timer publish_trajectory_timer_;
+  /// trajectory update frequency(Hz)
+  double trajectory_update_rate_;
+  /// trajectory publish frequency(Hz)
+  double trajectory_publish_rate_;
 
-	double trajectory_update_rate;
-	double trajectory_publish_rate;
+  // Sensor source
+  /// 2D laser scans topic name
+  std::string sensor_source_;
+  /// laser scan poses with respect to the map
+  std::map<std::string, mrpt::poses::CPose3D> laser_poses_;
 
-	// Sensor source
-	std::string sensor_source;                                       ///< 2D laser scans topic name
-	std::map<std::string, mrpt::poses::CPose3D> laser_poses_;        ///< laser scan poses with respect to the map
+  // Subscribers
+  // /// list of sensors topics
+  // std::vector<ros::Subscriber> sensorSub_;
 
-	// Subscribers
-	//std::vector<ros::Subscriber> sensorSub_;                       ///< list of sensors topics
+  /// receive map after iteration of SLAM to metric map
+  const CMultiMetricMap *metric_map_;
+  // /// current robot pose
+  // CPose3DPDFPtr curPDF;
+  /// publishers for map, pointcloude & pose particles
+  ros::Publisher pub_map_, pub_metadata_,
+    pub_pose_, pub_point_cloud_;
 
-	const CMultiMetricMap *metric_map_;                              ///< receive map after iteration of SLAM to metric map
-	//CPose3DPDFPtr curPDF;                                          ///< current robot pose
-	ros::Publisher pub_map_, pub_metadata_,
-		pub_pose_, pub_point_cloud_;                                 ///< publishers for map, pointcloude & pose particles
+  // /// transform listener
+  // tf::TransformListener listenerTF_;
+  // /// transform broadcaster
+  // tf::TransformBroadcaster tf_broadcaster_;
 
-	//tf::TransformListener listenerTF_;                             ///< transform listener
-	//tf::TransformBroadcaster tf_broadcaster_;                      ///< transform broadcaster
+  // /// timer for SLAM performance evaluation
+  //CTicTac tictac;
+  // /// the time which take one SLAM update execution
+  //float t_exec;
+  /// CSensoryFramePtr observations;
+  CObservationPtr observation_;
+  /// last update of the pose and map
+  mrpt::system::TTimeStamp timeLastUpdate_;
 
-	//CTicTac tictac;                                                ///< timer for SLAM performance evaluation
-	//float t_exec;                                                  ///< the time which take one SLAM update execution
-	//CSensoryFramePtr observations;
-	CObservationPtr observation;
-	mrpt::system::TTimeStamp timeLastUpdate_;                        ///< last update of the pose and map
+  /// timestamp for observations
+  ros::Time stamp;
 
-	ros::Time stamp;                                                 ///< timestamp for observations
+  /// MRPT window
+  mrpt::gui::CDisplayWindow3DPtr win3D_;
 
-	mrpt::gui::CDisplayWindow3DPtr win3D_;                           ///< MRPT window
+  /// for drawing in 3D views
+  std::vector<CObservation2DRangeScanPtr> lst_current_laser_scans_;
+  // bool isObsBasedRawlog;
 
-	std::vector<CObservation2DRangeScanPtr> lst_current_laser_scans; ///< for drawing in 3D views
-	// bool isObsBasedRawlog;
+  // GUI show relative parameter
+  bool show_progress_3d_real_time_;
+  int show_progress_3d_real_time_delay_ms_;
+  bool show_laser_scans_3d_;
+  bool camera_3dscene_follows_robot_;
 
-	// show relative
-	bool SHOW_PROGRESS_3D_REAL_TIME;
-	int SHOW_PROGRESS_3D_REAL_TIME_DELAY_MS;
-	bool SHOW_LASER_SCANS_3D;
-	bool CAMERA_3DSCENE_FOLLOWS_ROBOT;
+  // rawlog relative
+  /// save or not (switch)
+  bool save_rawlog_;
+  /// saved rawlog file
+  mrpt::utils::CFileGZOutputStream out_rawlog_;
 
-	// rawlog relative
-	bool SAVE_RAWLOG;                                                ///< save or not (switch)
-	mrpt::utils::CFileGZOutputStream out_rawlog;                     ///< saved rawlog file
+  // thread relative
+  /// thread parameter
+  struct TThreadParams params_;
+  // /// thread handle
+  // mrpt::system::TThreadHandle hSensorThread;
 
-	// thread relative
-	struct TThreadParams params;                                     ///< thread parameter
-	//mrpt::system::TThreadHandle hSensorThread;                       ///< thread handle
+  // configure file
+  /// ini config file
+  mrpt::utils::CConfigFile ini_file_;
 
-	// configure file
-	mrpt::utils::CConfigFile iniFile;                                ///< ini config file
+  // log relative
+  /// log output directory
+  string log_out_dir_;
+  /// log output frequency
+  int log_frequency_;
+  /// estimated pose output file name
+  CFileOutputStream f_estimated_;
 
-	// log relative
-	string OUT_DIR_STD;
-	int LOG_FREQUENCY;
-	CFileOutputStream f_estimated;
+  /// OpenGL scene
+  COpenGLScenePtr scene_;
 
-	COpenGLScenePtr scene;
+  nav_msgs::Odometry  cur_odom_, last_odom_;
+  /// if the first odom?
+  bool b_first_odom_;
+  /// odometry subscriber
+  ros::Subscriber odom_sub_;
+  /// laser scan subscriber
+  ros::Subscriber laser_sub_;
 
-	nav_msgs::Odometry  cur_odom_, last_odom_;
-	bool b_first_odom;
-	ros::Subscriber odom_sub_;
-	ros::Subscriber laser_sub_;
+  /// output CRawlog file
+  CRawlog *output_rawlog_;
 
-	CRawlog *pRawLogASF;
-
-    // pose between laser and base;
-	static CPose3D laser_base_pose_;
-	bool using_odometry_;
+  // pose between laser and base;
+  /// the pose between laser with base(robot)
+  static CPose3D laser_base_pose_;
+  /// the system using odometry?
+  bool using_odometry_;
 
 
 };
