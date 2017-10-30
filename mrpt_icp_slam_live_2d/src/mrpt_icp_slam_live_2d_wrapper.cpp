@@ -23,51 +23,51 @@ void SensorThread(ICPslamLiveWrapper::TThreadParams params) {
   using namespace mrpt::system;
   try {
     string driver_name = params.cfgFile->read_string(params.section_name,
-            "driver","",true);
+            "driver", "", true);
     CGenericSensorPtr sensor = CGenericSensor::createSensorPtr(driver_name);
-    if (!sensor)
+    if ( !sensor )
       throw std::runtime_error(
               string("***ERROR***: Class name not recognized: ")
-              + driver_name );
+              + driver_name);
 
     // Load common & sensor specific parameters:
-    sensor->loadConfig( *params.cfgFile, params.section_name );
-    cout << format("[thread_%s] Starting...",params.section_name.c_str())
+    sensor->loadConfig(*params.cfgFile, params.section_name);
+    cout << format("[thread_%s] Starting...", params.section_name.c_str())
         << " at " << sensor->getProcessRate() <<  " Hz" << endl;
 
-    ASSERTMSG_(sensor->getProcessRate()>0,
+    ASSERTMSG_(sensor->getProcessRate() > 0,
             "process_rate must be set to a valid value (>0 Hz).");
     const int process_period_ms =
-        mrpt::utils::round( 1000.0 / sensor->getProcessRate() );
-  
-    sensor->initialize(); // Init device:
-    while (! allThreadsMustExit ) {
-      const TTimeStamp t0= now();
+        mrpt::utils::round(1000.0 / sensor->getProcessRate());
+
+    sensor->initialize();  // Init device:
+    while ( !allThreadsMustExit ) {
+      const TTimeStamp t0 = now();
       sensor->doProcess();  // Process
       // Get new observations
       CGenericSensor::TListObservations lstObjs;
-      sensor->getObservations( lstObjs );
+      sensor->getObservations(lstObjs);
       {
-        synch::CCriticalSectionLocker lock (&cs_global_list_obs);
-        global_list_obs.insert( lstObjs.begin(), lstObjs.end() );
+        synch::CCriticalSectionLocker lock(&cs_global_list_obs);
+        global_list_obs.insert(lstObjs.begin(), lstObjs.end());
       }
       lstObjs.clear();
       // wait for the process period:
-      TTimeStamp t1= now();
-      double At = timeDifference(t0,t1);
+      TTimeStamp t1 = now();
+      double At = timeDifference(t0, t1);
       int At_rem_ms = process_period_ms - At*1000;
-      if (At_rem_ms>0)
+      if ( At_rem_ms > 0 )
         mrpt::system::sleep(At_rem_ms);
     }
     sensor.clear();
-    cout << format("[thread_%s] Closing...",params.section_name.c_str())
+    cout << format("[thread_%s] Closing...", params.section_name.c_str())
         << endl;
   }
-  catch (std::exception &e) {
+  catch ( std::exception &e ) {
     cerr << "[SensorThread]  Closing due to exception:\n" << e.what() << endl;
     allThreadsMustExit = true;
   }
-  catch (...) {
+  catch ( ... ) {
     cerr << "[SensorThread] Untyped exception! Closing." << endl;
     allThreadsMustExit = true;
   }
@@ -84,7 +84,6 @@ ICPslamLiveWrapper::ICPslamLiveWrapper() {
   save_rawlog_ = true;
   b_first_odom_ = true;
   output_rawlog_ = new CRawlog;
-
 }
 
 CPose3D ICPslamLiveWrapper::laser_base_pose_ = CPose3D(0, 0, 0, 0, 0, 0);
@@ -100,10 +99,10 @@ ICPslamLiveWrapper::~ICPslamLiveWrapper() {
       (unsigned int)parts.day,
       (unsigned int)parts.hour,
       (unsigned int)parts.minute,
-      (unsigned int)parts.second );
+      (unsigned int)parts.second);
     sOutMap += ".simplemap";
 
-    sOutMap = mrpt::system::fileNameStripInvalidChars( sOutMap );
+    sOutMap = mrpt::system::fileNameStripInvalidChars(sOutMap);
     ROS_INFO("Saving built map to `%s`", sOutMap.c_str());
     mapBuilder_.saveCurrentMapToFile(sOutMap);
 
@@ -113,23 +112,23 @@ ICPslamLiveWrapper::~ICPslamLiveWrapper() {
     ROS_INFO("SAVE FINAL METRIC MAPS!");
     finalPointsMap->saveMetricMapRepresentationToFile(str);
 
-    if (show_progress_3d_real_time_ && win3D_.present()) {
+    if ( show_progress_3d_real_time_ && win3D_.present() ) {
       CFileGZOutputStream f(format("%s/buildingmap_final.3Dscene",
                   log_out_dir_.c_str()));
       f << *scene_;
     }
     allThreadsMustExit = true;
-    //mrpt::system::joinThread(hSensorThread);
+    // mrpt::system::joinThread(hSensorThread);
     ROS_INFO("Sensor thread is closed. Bye-bye!");
 
-    if (output_rawlog_->size() > 0) {
+    if ( output_rawlog_->size() > 0 ) {
       std::string filename = "output_rawlog_.rawlog";
       output_rawlog_->saveToRawLogFile(filename);
     }
     delete output_rawlog_;
   }
-  catch (std::exception &e) {
-    ROS_ERROR("Exception: %s",e.what());
+  catch ( std::exception &e ) {
+    ROS_ERROR("Exception: %s", e.what());
   }
 }
 
@@ -139,7 +138,7 @@ bool ICPslamLiveWrapper::is_file_exists(const std::string &name) {
 }
 
 void ICPslamLiveWrapper::read_iniFile() {
-  //CConfigFile iniFile(ini_filename_);
+  // CConfigFile iniFile(ini_filename_);
 
   mapBuilder_.ICP_options.loadFromConfigFile(ini_file_, "MappingApplication");
   mapBuilder_.ICP_params.loadFromConfigFile(ini_file_, "ICP");
@@ -183,7 +182,6 @@ void ICPslamLiveWrapper::read_iniFile() {
           5, /*Force existence*/ true);
 
   f_estimated_.open(format("%s/log_estimated_path.txt", log_out_dir_.c_str()));
-
 }
 
 void ICPslamLiveWrapper::get_param() {
@@ -219,14 +217,14 @@ void ICPslamLiveWrapper::get_param() {
   n_.param("using_odometry", using_odometry_, true);
   ROS_INFO_STREAM("using_odometry: " << using_odometry_ ? "yes" : "no");
 
-  //mrpt::utils::CConfigFile iniFile(ini_filename_);
+  // mrpt::utils::CConfigFile iniFile(ini_filename_);
   params_.cfgFile = &ini_file_;
   params_.section_name = "LIDAR_SENSOR";
 }
 
 void ICPslamLiveWrapper::init3Dwindow() {
 #if MRPT_HAS_WXWIDGETS
-  if (show_progress_3d_real_time_) {
+  if ( show_progress_3d_real_time_ ) {
     win3D_ = mrpt::gui::CDisplayWindow3D::Create(
             "pf-localization - The MRPT project", 1000, 600);
     win3D_->setCameraZoom(20);
@@ -239,7 +237,7 @@ void ICPslamLiveWrapper::init3Dwindow() {
 void ICPslamLiveWrapper::run3Dwindow() {
   // Create 3D window if requested (the code is copied from
   // ../mrpt/apps/icp-slam/icp-slam_main.cpp):
-  if (show_progress_3d_real_time_ && win3D_.present()) {
+  if ( show_progress_3d_real_time_ && win3D_.present() ) {
     // get currently builded map
     metric_map_ = mapBuilder_.getCurrentlyBuiltMetricMap();
 
@@ -274,7 +272,7 @@ void ICPslamLiveWrapper::run3Dwindow() {
     view_map->insert(CRenderizablePtr(groundPlane));  // A copy
 
     // The camera pointing to the current robot pose:
-    if (camera_3dscene_follows_robot_) {
+    if ( camera_3dscene_follows_robot_ ) {
       scene_->enableFollowCamera(true);
 
       mrpt::opengl::CCamera &cam = view_map->getCamera();
@@ -291,7 +289,7 @@ void ICPslamLiveWrapper::run3Dwindow() {
 
       // Only the point map:
       opengl::CSetOfObjectsPtr ptsMap = opengl::CSetOfObjects::Create();
-      if (metric_map_->m_pointsMaps.size()) {
+      if ( metric_map_->m_pointsMaps.size() ) {
         metric_map_->m_pointsMaps[0]->getAs3DObject(ptsMap);
         view_map->insert(ptsMap);
       }
@@ -335,8 +333,8 @@ void ICPslamLiveWrapper::run3Dwindow() {
     }
 
     // Draw laser scanners in 3D:
-    if (show_laser_scans_3d_) {
-      for (size_t i = 0; i < lst_current_laser_scans_.size(); i++) {
+    if ( show_laser_scans_3d_ ) {
+      for ( size_t i = 0; i < lst_current_laser_scans_.size(); i++ ) {
         // Create opengl object and load scan data from the scan observation:
         opengl::CPlanarLaserScanPtr obj = opengl::CPlanarLaserScan::Create();
         obj->setScan(*lst_current_laser_scans_[i]);
@@ -351,14 +349,14 @@ void ICPslamLiveWrapper::run3Dwindow() {
 
 void ICPslamLiveWrapper::init() {
   // get parameters from ini file
-  if (!is_file_exists(ini_filename_)) {
+  if ( !is_file_exists(ini_filename_) ) {
     ROS_ERROR_STREAM("CAN'T READ INI FILE");
     return;
   }
 
   ROS_INFO("\n\n===== Launching LIDAR grabbing thread ===\n");
-  //hSensorThread = mrpt::system::createThread(SensorThread, params);
-  if (allThreadsMustExit)
+  // hSensorThread = mrpt::system::createThread(SensorThread, params);
+  if ( allThreadsMustExit )
     throw std::runtime_error(
         "\n== ABORTING: could not connect to LIDAR. See reported errors. ==\n");
   read_iniFile();
@@ -387,7 +385,7 @@ void ICPslamLiveWrapper::init() {
 
   update_trajector_timer_ =
       n_.createTimer(ros::Duration(1.0 / trajectory_update_rate_),
-              &ICPslamLiveWrapper::updateTrajectoryTimerCallback, this ,false);
+              &ICPslamLiveWrapper::updateTrajectoryTimerCallback, this, false);
 
   publish_trajectory_timer_ =
       n_.createTimer(ros::Duration(1.0 / trajectory_publish_rate_),
@@ -395,29 +393,31 @@ void ICPslamLiveWrapper::init() {
 
   laser_sub_ =
       n_.subscribe(sensor_source_, 1, &ICPslamLiveWrapper::laserCallback, this);
-  if (using_odometry_)
+  if ( using_odometry_ )
     odom_sub_ =
-        n_.subscribe(odom_frame_id_, 5, &ICPslamLiveWrapper::odometryCallback, this);
+        n_.subscribe(odom_frame_id_, 5,
+                &ICPslamLiveWrapper::odometryCallback, this);
 
   init3Dwindow();
 }
 
 void ICPslamLiveWrapper::odometryCallback(const nav_msgs::Odometry& odom) {
-  if (b_first_odom_) {
+  if ( b_first_odom_ ) {
     cur_odom_ = odom;
     last_odom_ = odom;
     b_first_odom_ = false;
-  } else
+  } else {
     cur_odom_ = odom;
+  }
 }
 
 void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
-  //CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
+  // CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
   CObservation2DRangeScanPtr laser = CObservation2DRangeScan::Create();
 
   // convert to mrpt lidar scan
   mrpt_bridge::convert(_msg, laser_base_pose_, *laser);
-  if (using_odometry_) {
+  if ( using_odometry_ ) {
     CActionCollectionPtr  action = CActionCollection::Create();
     convertOdometry(action);
 
@@ -426,7 +426,7 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
     SF->insert(laser);
 
     // save the rawlog?
-    if (save_rawlog_) {
+    if ( save_rawlog_ ) {
       output_rawlog_->addObservationsMemoryReference(SF);
       output_rawlog_->addActionsMemoryReference(action);
     }
@@ -440,14 +440,14 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
   CPose3D robotPose;
   mapBuilder_.getCurrentPoseEstimation()->getMean(robotPose);
 
-  if (metric_map_->m_gridMaps.size()) {
+  if ( metric_map_->m_gridMaps.size() ) {
     nav_msgs::OccupancyGrid _msg;
     mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
     pub_map_.publish(_msg);
     pub_metadata_.publish(_msg.info);
   }
 
-  if (metric_map_->m_pointsMaps.size()) {
+  if ( metric_map_->m_pointsMaps.size() ) {
     sensor_msgs::PointCloud _msg;
     std_msgs::Header header;
     header.stamp = ros::Time(0);
@@ -474,8 +474,7 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
 }
 
 void ICPslamLiveWrapper::updateTrajectoryTimerCallback(
-        const ros::TimerEvent& event)
-{
+        const ros::TimerEvent& event) {
   // ROS_DEBUG("update trajectory");
   path_.header.frame_id = global_frame_id_;
   path_.header.stamp = ros::Time(0);
@@ -483,8 +482,7 @@ void ICPslamLiveWrapper::updateTrajectoryTimerCallback(
 }
 
 void ICPslamLiveWrapper::publishTrajectoryTimerCallback(
-        const ros::TimerEvent& event)
-{
+        const ros::TimerEvent& event) {
   // ROS_DEBUG("publish trajectory");
   trajectory_pub_.publish(path_);
 }
@@ -502,15 +500,15 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
 
   tf::Matrix3x3(cur_quat).getRPY(cur_roll, cur_pitch, cur_yaw);
   tf::Matrix3x3(last_quat).getRPY(last_roll, last_pitch, last_yaw);
-  //ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f",
-  //x, y, cur_roll, cur_pitch, cur_yaw);
-  //ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f",
-  //x, y, last_roll, last_pitch, last_yaw);
+  // ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f",
+  // x, y, cur_roll, cur_pitch, cur_yaw);
+  // ROS_INFO("x: %f, y: %f, roll: %f, pitch: %f, yaw: %f",
+  // x, y, last_roll, last_pitch, last_yaw);
 
   CActionRobotMovement2D::TMotionModelOptions options;
-  if (isNaN(cur_yaw) || isNaN(last_yaw))
+  if ( isNaN(cur_yaw) || isNaN(last_yaw) ) {
     temp_action.computeFromOdometry(CPose2D(0, 0, 0), options);
-  else {
+  } else {
     static double angle = last_yaw;
     double yaw = cur_yaw - last_yaw;
     double d_x =  x * cos(angle) + y * sin(angle);
@@ -519,7 +517,7 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
     angle += yaw;
     temp_action.computeFromOdometry(CPose2D(d_x, d_y, yaw), options);
   }
-  //mrpt::system::TTimeStamp cur_time;
+  // mrpt::system::TTimeStamp cur_time;
   mrpt_bridge::convert(cur_odom_.header.stamp, temp_action.timestamp);
   action->insert(temp_action);
 }
