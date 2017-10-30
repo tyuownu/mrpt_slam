@@ -97,9 +97,8 @@ using namespace std;
  * @brief The ICPslamLiveWrapper provides 2d icp based SLAM from MRPT libraries.
  *
  */
-class ICPslamLiveWrapper
-{
-public:
+class ICPslamLiveWrapper {
+ public:
   /**
    *  @brief Thread relative parameter
    */
@@ -112,7 +111,7 @@ public:
    * @brief constructor
    */
   ICPslamLiveWrapper();
-  
+
   /**
   * @brief destructor
   */
@@ -138,12 +137,12 @@ public:
    * @brief read the parameters from launch file
    */
   void get_param();
-  
+
   /**
    * @brief initialize publishers subscribers and icp slam
    */
   void init();
-  
+
   /**
    * @brief check the existance of the file
    *
@@ -166,20 +165,20 @@ public:
     * @brief  publis tf tree
     *
     */
-  //void publishTF();
+  // void publishTF();
 
   /**
   * @brief publish point and/or grid map and robot pose
   *
   */
-  //void publishMapPose();
+  // void publishMapPose();
 
   /**
     * @brief  update the pose of the sensor with respect to the robot
     *
     *@param frame_id the frame of the sensors
     */
-  //void updateSensorPose(std::string _frame_id);
+  // void updateSensorPose(std::string _frame_id);
 
   /**
     * @brief  the trajectory update timer callback function
@@ -210,7 +209,7 @@ public:
   void convertOdometry(CActionCollectionPtr action) const;
 
 
-protected:
+ protected:
   /// icp slam class
   CMetricMapBuilderICP mapBuilder_;
   /// Node Handle
@@ -266,9 +265,9 @@ protected:
   // tf::TransformBroadcaster tf_broadcaster_;
 
   // /// timer for SLAM performance evaluation
-  //CTicTac tictac;
+  // CTicTac tictac;
   // /// the time which take one SLAM update execution
-  //float t_exec;
+  // float t_exec;
   /// CSensoryFramePtr observations;
   CObservationPtr observation_;
   /// last update of the pose and map
@@ -331,8 +330,6 @@ protected:
   static CPose3D laser_base_pose_;
   /// the system using odometry?
   bool using_odometry_;
-
-
 };
 
 #endif /* MRPT_ICP_SLAM_LIVE_2D_WRAPPER_H */
