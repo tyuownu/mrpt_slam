@@ -121,9 +121,8 @@ public:
   /**
    * @brief read ini file
    *
-   * @param ini_filename the name of the ini file to read
    */
-  void read_iniFile(std::string ini_filename);
+  void read_iniFile();
 
   /**
    * @brief init 3D window from mrpt lib
@@ -294,8 +293,6 @@ protected:
   // rawlog relative
   /// save or not (switch)
   bool save_rawlog_;
-  /// saved rawlog file
-  mrpt::utils::CFileGZOutputStream out_rawlog_;
 
   // thread relative
   /// thread parameter

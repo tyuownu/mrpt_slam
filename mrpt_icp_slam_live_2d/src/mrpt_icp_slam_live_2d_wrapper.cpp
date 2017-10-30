@@ -138,7 +138,7 @@ bool ICPslamLiveWrapper::is_file_exists(const std::string &name) {
   return f.good();
 }
 
-void ICPslamLiveWrapper::read_iniFile(std::string ini_filename_) {
+void ICPslamLiveWrapper::read_iniFile() {
   //CConfigFile iniFile(ini_filename_);
 
   mapBuilder_.ICP_options.loadFromConfigFile(ini_file_, "MappingApplication");
@@ -361,7 +361,7 @@ void ICPslamLiveWrapper::init() {
   if (allThreadsMustExit)
     throw std::runtime_error(
         "\n== ABORTING: could not connect to LIDAR. See reported errors. ==\n");
-  read_iniFile(ini_filename_);
+  read_iniFile();
   // read rawlog file if it  exists
   /*
    *if (is_file_exists(rawlog_filename))
@@ -370,22 +370,6 @@ void ICPslamLiveWrapper::init() {
    *  rawlog_play_ = true;
    *}
    */
-  if (save_rawlog_) {
-    mrpt::system::TTimeParts parts;
-    mrpt::system::timestampToParts(mrpt::system::now(), parts, true);
-    string rawlog_postfix = "_";
-    rawlog_postfix += format("%04u-%02u-%02u_%02uh%02um%o2us",
-        (unsigned int) parts.year,
-        (unsigned int) parts.month,
-        (unsigned int) parts.day,
-        (unsigned int) parts.hour,
-        (unsigned int) parts.minute,
-        (unsigned int) parts.second);
-    rawlog_postfix +=string(".rawlog");
-    rawlog_postfix = mrpt::system::fileNameStripInvalidChars( rawlog_postfix );
-    const string rawlog_filename = "icpslamlive_dataset_" + rawlog_postfix;
-    out_rawlog_.open(rawlog_filename);
-  }
 
   // Create publishers
   // publish grid map
