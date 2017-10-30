@@ -371,7 +371,7 @@ void ICPslamLiveWrapper::init() {
 
   // Create publishers
   // publish grid map
-  pub_map_ = n_.advertise<nav_msgs::OccupancyGrid>(global_frame_id_, 1, true);
+  pub_map_ = n_.advertise<nav_msgs::OccupancyGrid>("map", 1, true);
   pub_metadata_ = n_.advertise<nav_msgs::MapMetaData>("map_metadata", 1, true);
   // publish point map
   pub_point_cloud_ =
