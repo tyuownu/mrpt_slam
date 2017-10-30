@@ -373,7 +373,7 @@ void ICPslamLiveWrapper::init() {
 
   // Create publishers
   // publish grid map
-  pub_map_ = n_.advertise<nav_msgs::OccupancyGrid>("map", 1, true);
+  pub_map_ = n_.advertise<nav_msgs::OccupancyGrid>(global_frame_id_, 1, true);
   pub_metadata_ = n_.advertise<nav_msgs::MapMetaData>("map_metadata", 1, true);
   // publish point map
   pub_point_cloud_ =
@@ -394,10 +394,10 @@ void ICPslamLiveWrapper::init() {
       &ICPslamLiveWrapper::publishTrajectoryTimerCallback, this, false);
 
   laser_sub_ =
-      n_.subscribe("/scan", 1, &ICPslamLiveWrapper::laserCallback, this);
+      n_.subscribe(sensor_source_, 1, &ICPslamLiveWrapper::laserCallback, this);
   if (using_odometry_)
     odom_sub_ =
-        n_.subscribe("/odom", 5, &ICPslamLiveWrapper::odometryCallback, this);
+        n_.subscribe(odom_frame_id_, 5, &ICPslamLiveWrapper::odometryCallback, this);
 
   init3Dwindow();
 }
