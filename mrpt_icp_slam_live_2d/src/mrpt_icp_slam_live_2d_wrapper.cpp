@@ -397,6 +397,9 @@ void ICPslamLiveWrapper::init() {
         n_.subscribe(odom_frame_id_, 5,
                 &ICPslamLiveWrapper::odometryCallback, this);
 
+  map_server_ = n_.advertiseService("static_map",
+      &ICPslamLiveWrapper::getMap, this);
+
   init3Dwindow();
 }
 
@@ -546,4 +549,37 @@ void ICPslamLiveWrapper::convertOdometry(CActionCollectionPtr action) const {
   // mrpt::system::TTimeStamp cur_time;
   mrpt_bridge::convert(cur_odom_.header.stamp, temp_action.timestamp);
   action->insert(temp_action);
+}
+
+bool ICPslamLiveWrapper::getMap(nav_msgs::GetMap::Request &req,
+    nav_msgs::GetMap::Response &res) {
+  nav_msgs::OccupancyGrid _msg;
+  mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
+
+  if ( _msg.info.width != getmap_msg_.info.width ||
+      _msg.info.height != getmap_msg_.info.height ) {
+    getmap_msg_.data.resize(_msg.info.height * _msg.info.width);
+    getmap_msg_.header = _msg.header;
+    getmap_msg_.info = _msg.info;
+    getmap_msg_.data = _msg.data;
+  }
+
+  for ( size_t y = 0; y < _msg.info.height; ++y ) {
+    for ( size_t x = 0; x < _msg.info.width; ++x ) {
+      size_t i = x + (_msg.info.height - y - 1) * _msg.info.width;
+
+      if ( getmap_msg_.data[i] >= 60 || _msg.data[i] > 50 ) {
+        getmap_msg_.data[i] = 100;
+      } else if ( _msg.data[i] >= 0 && _msg.data[i] <= 49 ) {
+        getmap_msg_.data[i] = 0;
+      } else {
+        getmap_msg_.data[i] = -1;
+      }
+    }
+  }
+
+  // pub_map_.publish(getmap_msg_);
+  // pub_metadata_.publish(getmap_msg_.info);
+  res.map = getmap_msg_;
+  return true;
 }

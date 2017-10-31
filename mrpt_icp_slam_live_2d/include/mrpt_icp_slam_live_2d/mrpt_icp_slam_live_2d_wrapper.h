@@ -202,6 +202,16 @@ class ICPslamLiveWrapper {
     */
   void convertOdometry(CActionCollectionPtr action) const;
 
+  /**
+   * @brief Provide GetMap service
+   *
+   * @param req GetMap::Request
+   * @param res GetMap::Response
+   *
+   * @return true
+   */
+  bool getMap(nav_msgs::GetMap::Request &req, nav_msgs::GetMap::Response &res);
+
  protected:
   /// icp slam class
   CMetricMapBuilderICP mapBuilder_;
@@ -320,6 +330,12 @@ class ICPslamLiveWrapper {
   static CPose3D laser_base_pose_;
   /// the system using odometry?
   bool using_odometry_;
+
+  // getMap server and message for nav2d navigation
+  /// provide 'static_map' server
+  ros::ServiceServer map_server_;
+  /// provide map for global map, for save obstacle in map
+  nav_msgs::OccupancyGrid getmap_msg_;
 };
 
 #endif /* MRPT_ICP_SLAM_LIVE_2D_WRAPPER_H */
