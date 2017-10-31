@@ -162,12 +162,6 @@ class ICPslamLiveWrapper {
   void laserCallback(const sensor_msgs::LaserScan &_msg);
 
   /**
-    * @brief  publis tf tree
-    *
-    */
-  // void publishTF();
-
-  /**
   * @brief publish point and/or grid map and robot pose
   *
   */
@@ -207,7 +201,6 @@ class ICPslamLiveWrapper {
     * @param action fill the action collection using ROS odom
     */
   void convertOdometry(CActionCollectionPtr action) const;
-
 
  protected:
   /// icp slam class
@@ -259,10 +252,10 @@ class ICPslamLiveWrapper {
   ros::Publisher pub_map_, pub_metadata_,
     pub_pose_, pub_point_cloud_;
 
-  // /// transform listener
-  // tf::TransformListener listenerTF_;
-  // /// transform broadcaster
-  // tf::TransformBroadcaster tf_broadcaster_;
+  /// transform listener
+  tf::TransformListener listenerTF_;
+  /// transform broadcaster
+  tf::TransformBroadcaster tf_broadcaster_;
 
   // /// timer for SLAM performance evaluation
   // CTicTac tictac;
@@ -272,9 +265,6 @@ class ICPslamLiveWrapper {
   CObservationPtr observation_;
   /// last update of the pose and map
   mrpt::system::TTimeStamp timeLastUpdate_;
-
-  /// timestamp for observations
-  ros::Time stamp;
 
   /// MRPT window
   mrpt::gui::CDisplayWindow3DPtr win3D_;

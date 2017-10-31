@@ -74,7 +74,6 @@ void SensorThread(ICPslamLiveWrapper::TThreadParams params) {
 }
 
 ICPslamLiveWrapper::ICPslamLiveWrapper() {
-  stamp = ros::Time(0);
   // Default parameters for 3D window
   show_progress_3d_real_time_ = false;
   show_progress_3d_real_time_delay_ms_ = 0;  // this parameter is not used
@@ -471,6 +470,33 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
       mapBuilder_.getCurrentPoseEstimation()->getMeanVal().yaw());
 
   run3Dwindow();
+
+  // publish map->odom tf-tree
+  // Most of this code was copy and pase from ros::amcl
+  mrpt::poses::CPose3D robotPoseTF;
+  mapBuilder_.getCurrentPoseEstimation()->getMean(robotPoseTF);
+
+  tf::Stamped<tf::Pose> odom_to_map;
+  tf::Transform tmp_tf;
+  mrpt_bridge::convert(robotPoseTF, tmp_tf);
+
+  try {
+    tf::Stamped<tf::Pose> tmp_tf_stamped(tmp_tf.inverse(),
+        _msg.header.stamp, base_frame_id_);
+    listenerTF_.transformPose(odom_frame_id_, tmp_tf_stamped, odom_to_map);
+  } catch ( tf::TransformException ) {
+    ROS_INFO("Failed to subtract global_frame (%s) from odom_frame (%s)",
+        global_frame_id_.c_str(), odom_frame_id_.c_str());
+    return;
+  }
+
+  tf::Transform latest_tf_ = tf::Transform(
+      tf::Quaternion(odom_to_map.getRotation()),
+      tf::Point(odom_to_map.getOrigin()));
+
+  tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
+      _msg.header.stamp, global_frame_id_, odom_frame_id_);
+  tf_broadcaster_.sendTransform(tmp_tf_stamped);
 }
 
 void ICPslamLiveWrapper::updateTrajectoryTimerCallback(
