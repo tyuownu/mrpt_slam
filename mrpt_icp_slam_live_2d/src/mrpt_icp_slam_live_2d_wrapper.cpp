@@ -371,6 +371,7 @@ void ICPslamLiveWrapper::init() {
   // Create publishers
   // publish grid map
   pub_map_ = n_.advertise<nav_msgs::OccupancyGrid>("map", 1, true);
+  pub_getmap_ = n_.advertise<nav_msgs::OccupancyGrid>("get_map", 1, true);
   pub_metadata_ = n_.advertise<nav_msgs::MapMetaData>("map_metadata", 1, true);
   // publish point map
   pub_point_cloud_ =
@@ -578,8 +579,7 @@ bool ICPslamLiveWrapper::getMap(nav_msgs::GetMap::Request &req,
     }
   }
 
-  // pub_map_.publish(getmap_msg_);
-  // pub_metadata_.publish(getmap_msg_.info);
+  pub_getmap_.publish(getmap_msg_);
   res.map = getmap_msg_;
   return true;
 }

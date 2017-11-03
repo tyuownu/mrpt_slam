@@ -262,6 +262,9 @@ class ICPslamLiveWrapper {
   ros::Publisher pub_map_, pub_metadata_,
     pub_pose_, pub_point_cloud_;
 
+  /// getmap_msg_ publisher
+  ros::Publisher pub_getmap_;
+
   /// transform listener
   tf::TransformListener listenerTF_;
   /// transform broadcaster
