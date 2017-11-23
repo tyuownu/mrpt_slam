@@ -216,6 +216,13 @@ void ICPslamLiveWrapper::get_param() {
   n_.param("using_odometry", using_odometry_, true);
   ROS_INFO_STREAM("using_odometry: " << using_odometry_ ? "yes" : "no");
 
+  // true for OCCUPANCYGRID_MAP and false for NAVIGATION_MAP
+  bool map_type;
+  n_.param("output_map_type", map_type, true);
+
+  output_map_type_ = map_type ?
+    OutputMapType::OCCUPANCYGRID_MAP : OutputMapType::NAVIGATION_MAP;
+
   // mrpt::utils::CConfigFile iniFile(ini_filename_);
   params_.cfgFile = &ini_file_;
   params_.section_name = "LIDAR_SENSOR";
@@ -446,7 +453,29 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
   if ( metric_map_->m_gridMaps.size() ) {
     nav_msgs::OccupancyGrid _msg;
     mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
-    pub_map_.publish(_msg);
+    if ( output_map_type_ == OutputMapType::OCCUPANCYGRID_MAP ) {
+      pub_map_.publish(_msg);
+    } else if ( output_map_type_ == OutputMapType::NAVIGATION_MAP ) {
+      // nav_msgs::OccupancyGrid navigation_mapmsg;
+      getmap_msg_.data.resize(_msg.info.height * _msg.info.width);
+      getmap_msg_.header = _msg.header;
+      getmap_msg_.info = _msg.info;
+      getmap_msg_.data = _msg.data;
+
+      for ( size_t y = 0; y < _msg.info.height; ++y ) {
+        for ( size_t x = 0; x < _msg.info.width; ++x ) {
+          size_t i = x + (_msg.info.height - y - 1) * _msg.info.width;
+          if ( getmap_msg_.data[i] >= 60 || _msg.data[i] > 50 ) {
+            getmap_msg_.data[i] = 100;
+          } else if ( _msg.data[i] >= 0 && _msg.data[i] <= 49 ) {
+            getmap_msg_.data[i] = 0;
+          } else {
+            getmap_msg_.data[i] = -1;
+          }
+        }
+      }
+      pub_map_.publish(getmap_msg_);
+    }
     pub_metadata_.publish(_msg.info);
   }
 

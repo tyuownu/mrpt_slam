@@ -107,6 +107,23 @@ class ICPslamLiveWrapper {
     string section_name;
   };
 
+  // switch control the map output
+  /**
+   * @brief control the output map type
+   * status:
+   *   OCCUPANCYGRID_MAP
+   *       output map isoccupancy grid map [0-100]
+   *   NAVIGATION_MAP
+   *       output map using for navigation
+   *                 -1->UNKNOWN
+   *                  0->FREE
+   *                100->OBSTACLE
+   */
+  enum OutputMapType {
+    OCCUPANCYGRID_MAP,
+    NAVIGATION_MAP
+  };
+
   /**
    * @brief constructor
    */
@@ -339,6 +356,9 @@ class ICPslamLiveWrapper {
   ros::ServiceServer map_server_;
   /// provide map for global map, for save obstacle in map
   nav_msgs::OccupancyGrid getmap_msg_;
+
+  /// output map type
+  enum OutputMapType output_map_type_;
 };
 
 #endif /* MRPT_ICP_SLAM_LIVE_2D_WRAPPER_H */

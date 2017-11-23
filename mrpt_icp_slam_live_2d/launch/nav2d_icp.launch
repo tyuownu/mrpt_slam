@@ -11,6 +11,11 @@
   <param name="trajectory_update_rate" value="10"/>
   <param name="trajectory_publish_rate" value="5"/>
   <param name="using_odometry" value="true"/>
+  <!-- ture: output occupancy grid map, false: output navigation map-->
+  <!--
+  <param name="output_map_type" value="true" />
+  -->
+  <param name="output_map_type" value="false" />
   <env name="ROSCONSOLE_CONFIG_FILE" value="$(find mrpt_icp_slam_live_2d)/config/rosconsole.config"/>
 
   <!--PLAY BAG FILE-->
