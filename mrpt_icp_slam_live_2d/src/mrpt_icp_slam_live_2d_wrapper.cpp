@@ -457,10 +457,13 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
       pub_map_.publish(_msg);
     } else if ( output_map_type_ == OutputMapType::NAVIGATION_MAP ) {
       // nav_msgs::OccupancyGrid navigation_mapmsg;
-      getmap_msg_.data.resize(_msg.info.height * _msg.info.width);
-      getmap_msg_.header = _msg.header;
-      getmap_msg_.info = _msg.info;
-      getmap_msg_.data = _msg.data;
+      if ( _msg.info.width != getmap_msg_.info.width ||
+          _msg.info.height != getmap_msg_.info.height ) {
+        getmap_msg_.data.resize(_msg.info.height * _msg.info.width);
+        getmap_msg_.header = _msg.header;
+        getmap_msg_.info = _msg.info;
+        getmap_msg_.data = _msg.data;
+      }
 
       for ( size_t y = 0; y < _msg.info.height; ++y ) {
         for ( size_t x = 0; x < _msg.info.width; ++x ) {
