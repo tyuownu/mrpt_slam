@@ -229,6 +229,11 @@ class ICPslamLiveWrapper {
    */
   bool getMap(nav_msgs::GetMap::Request &req, nav_msgs::GetMap::Response &res);
 
+  /**
+   * @brief publish tf between map->odom
+   */
+  void publishTF(const ros::TimerEvent& timer);
+
  protected:
   /// icp slam class
   CMetricMapBuilderICP mapBuilder_;
@@ -359,6 +364,11 @@ class ICPslamLiveWrapper {
 
   /// output map type
   enum OutputMapType output_map_type_;
+
+  /// tf publish timer
+  ros::Timer tf_publish_timer_;
+  /// tf publish frequency
+  double tf_publish_rate_;
 };
 
 #endif /* MRPT_ICP_SLAM_LIVE_2D_WRAPPER_H */

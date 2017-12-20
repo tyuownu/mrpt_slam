@@ -11,6 +11,7 @@
   <param name="trajectory_update_rate" value="10"/>
   <param name="trajectory_publish_rate" value="5"/>
   <param name="using_odometry" value="true"/>
+  <param name="tf_publish_rate" value="20" />
   <!-- ture: output occupancy grid map, false: output navigation map-->
   <!--
   <param name="output_map_type" value="true" />

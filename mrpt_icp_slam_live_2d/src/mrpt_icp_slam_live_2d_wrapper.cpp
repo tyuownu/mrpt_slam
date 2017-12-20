@@ -216,6 +216,9 @@ void ICPslamLiveWrapper::get_param() {
   n_.param("using_odometry", using_odometry_, true);
   ROS_INFO_STREAM("using_odometry: " << using_odometry_ ? "yes" : "no");
 
+  n_.param("tf_publish_rate", tf_publish_rate_, 10.0);
+  ROS_INFO_STREAM("tf_publish_rate: " << tf_publish_rate_);
+
   // true for OCCUPANCYGRID_MAP and false for NAVIGATION_MAP
   bool map_type;
   n_.param("output_map_type", map_type, true);
@@ -398,6 +401,9 @@ void ICPslamLiveWrapper::init() {
       n_.createTimer(ros::Duration(1.0 / trajectory_publish_rate_),
       &ICPslamLiveWrapper::publishTrajectoryTimerCallback, this, false);
 
+  tf_publish_timer_ = n_.createTimer(ros::Duration(1.0 / tf_publish_rate_),
+      &ICPslamLiveWrapper::publishTF, this, false);
+
   laser_sub_ =
       n_.subscribe(sensor_source_, 1, &ICPslamLiveWrapper::laserCallback, this);
   if ( using_odometry_ )
@@ -453,6 +459,7 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
   if ( metric_map_->m_gridMaps.size() ) {
     nav_msgs::OccupancyGrid _msg;
     mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
+    pub_getmap_.publish(_msg);
     if ( output_map_type_ == OutputMapType::OCCUPANCYGRID_MAP ) {
       pub_map_.publish(_msg);
     } else if ( output_map_type_ == OutputMapType::NAVIGATION_MAP ) {
@@ -477,7 +484,6 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
           }
         }
       }
-      pub_map_.publish(getmap_msg_);
     }
     pub_metadata_.publish(_msg.info);
   }
@@ -507,32 +513,6 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
 
   run3Dwindow();
 
-  // publish map->odom tf-tree
-  // Most of this code was copy and pase from ros::amcl
-  mrpt::poses::CPose3D robotPoseTF;
-  mapBuilder_.getCurrentPoseEstimation()->getMean(robotPoseTF);
-
-  tf::Stamped<tf::Pose> odom_to_map;
-  tf::Transform tmp_tf;
-  mrpt_bridge::convert(robotPoseTF, tmp_tf);
-
-  try {
-    tf::Stamped<tf::Pose> tmp_tf_stamped(tmp_tf.inverse(),
-        _msg.header.stamp, base_frame_id_);
-    listenerTF_.transformPose(odom_frame_id_, tmp_tf_stamped, odom_to_map);
-  } catch ( tf::TransformException ) {
-    ROS_INFO("Failed to subtract global_frame (%s) from odom_frame (%s)",
-        global_frame_id_.c_str(), odom_frame_id_.c_str());
-    return;
-  }
-
-  tf::Transform latest_tf_ = tf::Transform(
-      tf::Quaternion(odom_to_map.getRotation()),
-      tf::Point(odom_to_map.getOrigin()));
-
-  tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
-      _msg.header.stamp, global_frame_id_, odom_frame_id_);
-  tf_broadcaster_.sendTransform(tmp_tf_stamped);
 }
 
 void ICPslamLiveWrapper::updateTrajectoryTimerCallback(
@@ -614,4 +594,33 @@ bool ICPslamLiveWrapper::getMap(nav_msgs::GetMap::Request &req,
   pub_getmap_.publish(getmap_msg_);
   res.map = getmap_msg_;
   return true;
+}
+
+void ICPslamLiveWrapper::publishTF(const ros::TimerEvent& timer) {
+  // publish map->odom tf-tree
+  // Most of this code was copy and pase from ros::amcl
+  mrpt::poses::CPose3D robotPoseTF;
+  mapBuilder_.getCurrentPoseEstimation()->getMean(robotPoseTF);
+
+  tf::Stamped<tf::Pose> odom_to_map;
+  tf::Transform tmp_tf;
+  mrpt_bridge::convert(robotPoseTF, tmp_tf);
+
+  try {
+    tf::Stamped<tf::Pose> tmp_tf_stamped(tmp_tf.inverse(),
+        ros::Time::now(), base_frame_id_);
+    listenerTF_.transformPose(odom_frame_id_, tmp_tf_stamped, odom_to_map);
+  } catch ( tf::TransformException ) {
+    ROS_INFO("Failed to subtract global_frame (%s) from odom_frame (%s)",
+        global_frame_id_.c_str(), odom_frame_id_.c_str());
+    return;
+  }
+
+  tf::Transform latest_tf_ = tf::Transform(
+      tf::Quaternion(odom_to_map.getRotation()),
+      tf::Point(odom_to_map.getOrigin()));
+
+  tf::StampedTransform tmp_tf_stamped(latest_tf_.inverse(),
+      ros::Time::now(), global_frame_id_, odom_frame_id_);
+  tf_broadcaster_.sendTransform(tmp_tf_stamped);
 }
