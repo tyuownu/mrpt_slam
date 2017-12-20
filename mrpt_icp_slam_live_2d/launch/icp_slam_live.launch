@@ -27,8 +27,8 @@
   <node pkg="rviz" type="rviz" name="rviz_nav" output="screen" args="-d $(find mrpt_icp_slam_live_2d)/rviz/rviz_conf.rviz"></node>
   <node pkg="mrpt_icp_slam_live_2d" type="mrpt_icp_slam_live_2d" name="mrpt_icp_slam_live_2d" output="screen"></node>
 
-  <node pkg="tf" type="static_transform_publisher" name="footprint_base_broadcaster" args="0 0 0 0 0 0 1 base_footprint base_link 100" />
-  <node pkg="tf" type="static_transform_publisher" name="base_laser_broadcaster" args="0 0 0 0 0 0 1 base_link laser 100" />
+  <node pkg="tf" type="static_transform_publisher" name="footprint_base_broadcaster" args="0 0 0 0 0 0 1 base_footprint base_link 10" />
+  <node pkg="tf" type="static_transform_publisher" name="base_laser_broadcaster" args="0 0 0 0 0 0 1 base_link laser 10" />
 
 </launch>
 
