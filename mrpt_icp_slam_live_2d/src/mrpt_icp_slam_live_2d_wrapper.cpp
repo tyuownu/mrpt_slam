@@ -451,26 +451,26 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
   mapBuilder_.getCurrentPoseEstimation()->getMean(robotPose);
 
   if ( metric_map_->m_gridMaps.size() ) {
-    nav_msgs::OccupancyGrid _msg;
-    mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
+    nav_msgs::OccupancyGrid occu_msg;
+    mrpt_bridge::convert(*metric_map_->m_gridMaps[0], occu_msg);
     if ( output_map_type_ == OutputMapType::OCCUPANCYGRID_MAP ) {
-      pub_map_.publish(_msg);
+      pub_map_.publish(occu_msg);
     } else if ( output_map_type_ == OutputMapType::NAVIGATION_MAP ) {
       // nav_msgs::OccupancyGrid navigation_mapmsg;
-      if ( _msg.info.width != getmap_msg_.info.width ||
-          _msg.info.height != getmap_msg_.info.height ) {
-        getmap_msg_.data.resize(_msg.info.height * _msg.info.width);
-        getmap_msg_.header = _msg.header;
-        getmap_msg_.info = _msg.info;
-        getmap_msg_.data = _msg.data;
+      if ( occu_msg.info.width != getmap_msg_.info.width ||
+          occu_msg.info.height != getmap_msg_.info.height ) {
+        getmap_msg_.data.resize(occu_msg.info.height * occu_msg.info.width);
+        getmap_msg_.header = occu_msg.header;
+        getmap_msg_.info = occu_msg.info;
+        getmap_msg_.data = occu_msg.data;
       }
 
-      for ( size_t y = 0; y < _msg.info.height; ++y ) {
-        for ( size_t x = 0; x < _msg.info.width; ++x ) {
-          size_t i = x + (_msg.info.height - y - 1) * _msg.info.width;
-          if ( getmap_msg_.data[i] >= 60 || _msg.data[i] > 50 ) {
+      for ( size_t y = 0; y < occu_msg.info.height; ++y ) {
+        for ( size_t x = 0; x < occu_msg.info.width; ++x ) {
+          size_t i = x + (occu_msg.info.height - y - 1) * occu_msg.info.width;
+          if ( getmap_msg_.data[i] >= 60 || occu_msg.data[i] > 50 ) {
             getmap_msg_.data[i] = 100;
-          } else if ( _msg.data[i] >= 0 && _msg.data[i] <= 49 ) {
+          } else if ( occu_msg.data[i] >= 0 && occu_msg.data[i] <= 49 ) {
             getmap_msg_.data[i] = 0;
           } else {
             getmap_msg_.data[i] = -1;
@@ -479,17 +479,17 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
       }
       pub_map_.publish(getmap_msg_);
     }
-    pub_metadata_.publish(_msg.info);
+    pub_metadata_.publish(occu_msg.info);
   }
 
   if ( metric_map_->m_pointsMaps.size() ) {
-    sensor_msgs::PointCloud _msg;
+    sensor_msgs::PointCloud pc_msg;
     std_msgs::Header header;
     header.stamp = ros::Time(0);
     header.frame_id = global_frame_id_;
     mrpt_bridge::point_cloud::mrpt2ros(*metric_map_->m_pointsMaps[0],
-            header, _msg);
-    pub_point_cloud_.publish(_msg);
+            header, pc_msg);
+    pub_point_cloud_.publish(pc_msg);
   }
 
   // geometry_msgs::PoseStamped pose;
