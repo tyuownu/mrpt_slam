@@ -459,6 +459,7 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
   if ( metric_map_->m_gridMaps.size() ) {
     nav_msgs::OccupancyGrid _msg;
     mrpt_bridge::convert(*metric_map_->m_gridMaps[0], _msg);
+    pub_getmap_.publish(_msg);
     if ( output_map_type_ == OutputMapType::OCCUPANCYGRID_MAP ) {
       pub_map_.publish(_msg);
     } else if ( output_map_type_ == OutputMapType::NAVIGATION_MAP ) {
@@ -483,7 +484,6 @@ void ICPslamLiveWrapper::laserCallback(const sensor_msgs::LaserScan &_msg) {
           }
         }
       }
-      pub_map_.publish(getmap_msg_);
     }
     pub_metadata_.publish(_msg.info);
   }
