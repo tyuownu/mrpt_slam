@@ -151,8 +151,13 @@ void ICPslamLiveWrapper::read_iniFile() {
   mapBuilder_.setVerbosityLevel(mrpt_bridge::rosLoggerLvlToMRPTLoggerLvl(
               ros_logger->getLevel()));
   mapBuilder_.logging_enable_console_output = false;
+#if MRPT_VERSION < 0x199
+  mapBuilder_.logRegisterCallback(static_cast<output_logger_callback_t>(&mrpt_bridge::mrptToROSLoggerCallback_mrpt_15));
+#else
   mapBuilder_.logRegisterCallback(static_cast<output_logger_callback_t>(
               &mrpt_bridge::mrptToROSLoggerCallback));
+#endif
+
 #endif
   mapBuilder_.options.alwaysInsertByClass.fromString(
       ini_file_.read_string("MappingApplication", "alwaysInsertByClass", ""));

@@ -16,6 +16,8 @@
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/stock_objects.h>
 #include <mrpt/utils/CConfigFile.h>
+#include <mrpt/utils/CFileInputStream.h>
+#include <mrpt/utils/CFileOutputStream.h>
 #include <mrpt/utils/CFileGZInputStream.h>
 #include <mrpt/utils/CFileGZOutputStream.h>
 #include <mrpt/system/os.h>
